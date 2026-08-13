@@ -1,0 +1,44 @@
+{
+  "name": "autocall-pro",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI 기반 텔레마케팅 오토콜 시스템 모노레포",
+  "packageManager": "npm@10.8.2",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10.8.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev:frontend": "npm run dev --workspace @autocall-pro/frontend",
+    "dev:backend": "npm run start:dev --workspace @autocall-pro/backend",
+    "prisma:generate": "npm run prisma:generate --workspace @autocall-pro/backend",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4"
+  },
+  "overrides": {
+    "js-yaml": "5.2.3",
+    "@nestjs/swagger": {
+      "js-yaml": "4.3.1"
+    }
+  },
+  "lint-staged": {
+    "*.{js,mjs,cjs,ts,tsx,json,md,yml,yaml,css}": "prettier --write",
+    "apps/frontend/**/*.{ts,tsx}": "eslint --fix --config apps/frontend/eslint.config.mjs",
+    "apps/backend/**/*.ts": "eslint --fix --config apps/backend/eslint.config.mjs"
+  }
+}

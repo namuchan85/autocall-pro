@@ -1,0 +1,13 @@
+# Changelog
+
+모든 주요 변경사항은 이 문서에 기록합니다.
+
+## [Unreleased]
+
+### Added
+
+- Level 1 프로젝트 기반
+- Next.js 및 NestJS 애플리케이션
+- PostgreSQL, Redis, Docker Compose 기반
+- Prisma 초기 설정, Swagger, ValidationPipe, 전역 예외 필터, Logger 구조
+- ESLint, Prettier, Husky, lint-staged 및 GitHub Actions CI

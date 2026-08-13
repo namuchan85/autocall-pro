@@ -1,0 +1,10 @@
+{
+  "root": true,
+  "ignorePatterns": ["node_modules/", "dist/", ".next/"],
+  "overrides": [
+    {
+      "files": ["apps/frontend/**/*.{ts,tsx}"],
+      "extends": ["next/core-web-vitals", "next/typescript"]
+    }
+  ]
+}
