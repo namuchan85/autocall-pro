@@ -18,4 +18,4 @@ COPY --from=build /workspace/node_modules ./node_modules
 COPY --from=build /workspace/apps/backend/dist ./apps/backend/dist
 COPY --from=build /workspace/apps/backend/package.json ./apps/backend/package.json
 EXPOSE 3001
-CMD ["node", "apps/backend/dist/main.js"]
+CMD ["node", "apps/backend/dist/src/main.js"]
