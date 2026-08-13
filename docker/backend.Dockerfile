@@ -8,6 +8,7 @@ COPY packages/ui/package.json packages/ui/package.json
 COPY packages/config/package.json packages/config/package.json
 RUN npm ci
 COPY . .
+RUN DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder npm run prisma:generate
 RUN npm run build --workspace @autocall-pro/backend
 
 FROM node:22-alpine AS runtime

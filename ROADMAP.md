@@ -4,7 +4,13 @@
 
 - 모노레포, 앱 기본 구조, 품질 도구, Docker, CI, 문서
 
-## Level 2 — Core Platform
+## Level 2 — Project Skeleton
+
+- PostgreSQL·Redis 실제 연결과 통합 Health Check
+- Frontend·Backend 컨테이너 Health Check와 전용 Docker network
+- `/swagger`, `/health`, 환경변수 검증
+
+## Level 3 — Core Platform
 
 - 요구사항 승인 후 인증·권한, 고객 도메인, 캠페인 도메인의 최소 골격
 - 개인정보 동의·수신거부·감사 추적 정책을 코드보다 먼저 확정

@@ -12,8 +12,10 @@ RUN npm run build --workspace @autocall-pro/frontend
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
+ENV HOSTNAME=0.0.0.0
 WORKDIR /workspace
 COPY --from=build /workspace/node_modules ./node_modules
+COPY --from=build /workspace/package.json ./package.json
 COPY --from=build /workspace/apps/frontend/.next ./apps/frontend/.next
 COPY --from=build /workspace/apps/frontend/public ./apps/frontend/public
 COPY --from=build /workspace/apps/frontend/package.json ./apps/frontend/package.json

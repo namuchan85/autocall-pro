@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:17-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: autocall
       POSTGRES_USER: autocall
@@ -14,9 +15,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - autocall-network
 
   redis:
     image: redis:8-alpine
+    restart: unless-stopped
     ports:
       - '6379:6379'
     volumes:
@@ -26,16 +30,18 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - autocall-network
 
   backend:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: docker/backend.Dockerfile
     environment:
       DATABASE_URL: postgresql://autocall:autocall@postgres:5432/autocall?schema=public
       REDIS_URL: redis://redis:6379
-      JWT_SECRET: development-only
-      NODE_ENV: development
+      NODE_ENV: production
       PORT: 3001
     ports:
       - '3001:3001'
@@ -44,18 +50,52 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3001/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - autocall-network
 
   frontend:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
     environment:
-      NODE_ENV: development
+      NODE_ENV: production
     ports:
       - '3000:3000'
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://localhost:3000').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - autocall-network
 
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  autocall-network:
+    driver: bridge
