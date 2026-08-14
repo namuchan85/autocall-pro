@@ -48,6 +48,7 @@
 - OpenAPI paths: `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`
 - securitySchemes: `JWT`, `cookie` (`refresh_token`)
 - `GET /auth/me`에 Bearer JWT Authorize 적용
+- 브라우저 캡처: `review/swagger.png`, `review/login.png`, `review/dashboard.png`
 
 ## 8. TODO — Level 4
 

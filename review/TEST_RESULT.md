@@ -36,3 +36,11 @@
 - Frontend `/auth/login` 프록시 로그인 성공
 - Login·Dashboard·Swagger HTTP 200
 - Seed 비밀번호는 `$2b$` bcrypt hash로 저장됨
+
+## Browser
+
+- `/login`에서 seed 관리자 로그인 후 `/dashboard`로 이동
+- 대시보드에 `Welcome AutoCall Pro`만 표시
+- 잘못된 비밀번호는 `이메일 또는 비밀번호를 확인해주세요.` 표시
+- Swagger UI Authorize 버튼과 auth API 4개 확인
+- 화면 캡처: `review/login.png`, `review/dashboard.png`, `review/login-error.png`, `review/swagger.png`
