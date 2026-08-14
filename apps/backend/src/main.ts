@@ -32,9 +32,9 @@ async function bootstrap(): Promise<void> {
   app.useGlobalFilters(new GlobalExceptionFilter());
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('AutoCall Pro API')
-    .setDescription('AutoCall Pro REST API documentation')
-    .setVersion('0.3.0')
+    .setTitle('AutoCall Lite API')
+    .setDescription('Personal autocall REST API')
+    .setVersion('0.4.0')
     .addBearerAuth(
       {
         type: 'http',

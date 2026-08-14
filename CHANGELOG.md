@@ -24,3 +24,8 @@
 ### Fixed
 
 - Customer `name`은 DTO에서 trim하며 공백만 있는 값은 거부한다
+
+### Changed
+
+- 제품 방향을 AutoCall Lite(개인용 오토콜)로 전환하고 `docs/AUTOCALL_LITE.md`를 추가한다
+- 사용하지 않는 BullMQ·WebSocket 의존성을 제거한다

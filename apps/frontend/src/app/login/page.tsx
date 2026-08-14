@@ -31,10 +31,8 @@ export default function LoginPage() {
         className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-8 shadow-2xl"
         onSubmit={handleSubmit}
       >
-        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">
-          Administrator
-        </p>
-        <h1 className="mt-3 text-3xl font-bold">AutoCall Pro</h1>
+        <p className="text-sm font-semibold uppercase tracking-[0.25em] text-cyan-400">Local</p>
+        <h1 className="mt-3 text-3xl font-bold">AutoCall Lite</h1>
         <div className="mt-8 space-y-5">
           <label className="block">
             <span className="mb-2 block text-sm text-slate-300">Email</span>

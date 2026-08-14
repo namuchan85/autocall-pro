@@ -1,12 +1,14 @@
-# AutoCall Pro
+# AutoCall Lite
 
-AI 기반 텔레마케팅 오토콜 시스템을 위한 장기 프로젝트입니다. 현재 Level 4는 관리자 JWT 인증과 고객(Customer) CRUD MVP를 제공합니다.
+개인 1명이 PC에서 사용하는 간단한 오토콜 프로그램입니다. 전화번호를 저장하고, 전화를 걸고, 안내 음성·DTMF·문자·결과를 다루는 것이 목표입니다. 기업용 텔레마케팅 SaaS는 만들지 않습니다.
+
+현재는 **Lite Level 1**입니다. 관리자 로그인과 고객(전화번호) CRUD가 동작하며, 실제 전화 발신은 아직 없습니다. 방향과 로드맵은 `docs/AUTOCALL_LITE.md`를 따릅니다.
 
 ## 기술 스택
 
 - Frontend: Next.js, TypeScript, Tailwind CSS
-- Backend: NestJS, TypeScript, REST, WebSocket, Swagger
-- Data: PostgreSQL, Prisma, Redis, BullMQ
+- Backend: NestJS, TypeScript, REST, Swagger
+- Data: PostgreSQL, Prisma, Redis (로그인 Rate Limit)
 - Quality: Jest, ESLint, Prettier, Husky, lint-staged
 - Deployment: Docker Compose
 
@@ -48,6 +50,8 @@ Health API는 PostgreSQL과 Redis 연결을 모두 확인한 경우에만 `{"sta
 
 ## 관리자 인증
 
+단일 사용자용으로 기존 JWT 로그인을 유지합니다. 다중 역할·다중 관리자 기능은 추가하지 않습니다.
+
 - Seed email: `admin@autocall.local`
 - Seed password: `.env`의 `SEED_ADMIN_PASSWORD`
 - Login: `POST /auth/login`
@@ -55,15 +59,13 @@ Health API는 PostgreSQL과 Redis 연결을 모두 확인한 경우에만 `{"sta
 - Logout: `POST /auth/logout`
 - Current user: `GET /auth/me`
 
-Refresh Token은 HttpOnly 쿠키로 전달되고 DB에는 bcrypt hash만 저장됩니다. `POST /auth/login`은 Redis 고정 윈도우로 IP당 기본 5회/60초 제한합니다. 기존 ioredis를 사용하므로 별도의 Rate Limit 라이브러리는 추가하지 않았습니다. 통합 테스트에는 Nest HTTP 시나리오 검증용 `supertest`만 개발 의존성으로 추가했습니다. Client IP 정책은 `docs/security/client-ip.md`를 따릅니다.
+Refresh Token은 HttpOnly 쿠키로 전달되고 DB에는 bcrypt hash만 저장됩니다. `POST /auth/login`은 Redis 고정 윈도우로 IP당 기본 5회/60초 제한합니다. Client IP 정책은 `docs/security/client-ip.md`를 따릅니다.
 
 백엔드 `npm test`는 Jest setup에서 테스트용 환경변수를 주입하므로 로컬 `.env` 없이 통과해야 합니다.
 
-최초 로그인 후 seed 비밀번호를 변경하는 기능은 다음 단계에서 추가해야 합니다.
-
 ## 고객 관리
 
-인증된 관리자는 Customer CRUD를 사용할 수 있습니다. 전화번호는 E.164 문자열로 저장하며 DELETE는 Soft Delete입니다.
+인증된 사용자는 Customer CRUD로 전화번호를 저장·조회합니다. 전화번호는 E.164 문자열로 저장하며 DELETE는 Soft Delete입니다.
 
 - `POST /customers`
 - `GET /customers` — page, limit, keyword, status, doNotCall
@@ -71,23 +73,25 @@ Refresh Token은 HttpOnly 쿠키로 전달되고 DB에는 bcrypt hash만 저장�
 - `PATCH /customers/:id`
 - `DELETE /customers/:id`
 
-VIEWER는 조회만 가능하고, 생성·수정·삭제는 SUPER_ADMIN, ADMIN, MANAGER만 가능합니다. CSV 업로드와 캠페인은 포함하지 않습니다.
+CSV 업로드, 캠페인, 전화 발신은 포함하지 않습니다.
 
 ## 개발 규칙
 
-변경 전 `AGENTS.md`와 `DEVELOPMENT_RULES.md`를 확인합니다. 커밋 전 lint-staged가 실행되며 CI는 Install, Lint, Test, Build를 검증합니다.
+변경 전 `AGENTS.md`, `DEVELOPMENT_RULES.md`, `docs/AUTOCALL_LITE.md`를 확인합니다. 커밋 전 lint-staged가 실행되며 CI는 Install, Lint, Test, Build를 검증합니다.
+
+현재 단계에서는 Telephony, SMS, AI Voice, Campaign을 구현하지 않습니다.
 
 ## 프로젝트 구조
 
 ```text
 apps/
-  frontend/       Next.js 애플리케이션
-  backend/        NestJS 애플리케이션
+  frontend/       Next.js (로그인, 대시보드)
+  backend/        NestJS (auth, customers)
 packages/
-  shared/         공유 타입과 유틸리티 예정
-  ui/             공유 UI 예정
-  config/         공유 설정 예정
-docs/             상세 문서
+  shared/         공유 타입 예정 (비어 있음)
+  ui/             공유 UI 예정 (비어 있음)
+  config/         공유 설정 예정 (비어 있음)
+docs/             AUTOCALL_LITE.md 및 보안 문서
 docker/           Dockerfile
 scripts/          개발 스크립트
 .github/          GitHub Actions

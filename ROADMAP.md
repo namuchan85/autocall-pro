@@ -1,36 +1,34 @@
 # Roadmap
 
-## Level 1 — Foundation
+상세 방향은 `docs/AUTOCALL_LITE.md`를 따른다.
 
-- 모노레포, 앱 기본 구조, 품질 도구, Docker, CI, 문서
+## Lite Level 1 — 구조 정리 (현재)
 
-## Level 2 — Project Skeleton
+- 기업용 SaaS 방향에서 개인용 AutoCall Lite로 전환
+- 기존 Auth·Customer·Docker·테스트를 유지
+- 전화·문자·AI는 구현하지 않음
 
-- PostgreSQL·Redis 실제 연결과 통합 Health Check
-- Frontend·Backend 컨테이너 Health Check와 전용 Docker network
-- `/swagger`, `/health`, 환경변수 검증
+## Lite Level 2 — 실제 전화 1통
 
-## Level 3 — Core Platform
+- 전화 API 또는 SIP Provider 연결
+- 테스트 전화번호로 실제 발신 1통
 
-- User·Role·RefreshToken 모델과 migration
-- JWT 로그인·갱신·로그아웃·현재 사용자 API
-- RBAC Guard와 관리자 로그인 UI
+## Lite Level 3 — 음성 안내 + DTMF
 
-## Level 4 — Customer Management
+- 연결 후 안내 음성 재생
+- DTMF 키 수신
 
-- Customer 모델, Soft Delete, E.164 전화번호
-- Customer CRUD API, 목록 페이징·검색·필터
-- JWT RBAC로 조회/변경 권한 분리
+## Lite Level 4 — 문자·결과·UI
 
-## Level 5 — User Administration
+- 문자 발송
+- 통화 결과 저장·조회
+- 전화번호 목록, 발신, 결과, 설정 화면
 
-- 관리자 생성·수정·비활성화와 비밀번호 변경
-- 감사 로그와 Refresh Token 세션 관리
-- 개인정보 동의·수신거부 정책 확정
+## Lite Level 5 — 선택적 AI Voice
 
-## 이후 단계
+- 1~4가 안정된 뒤에만 STT / LLM / TTS 검토
 
-- 비동기 작업과 실시간 상태
-- 통신 사업자 연동
-- 운영 관측성, 보안 강화, 부하·복구 테스트
-- 별도 승인 후 STT/TTS/LLM 기능 검토
+## 완료한 기반 (재사용)
+
+- 모노레포, Docker, CI, PostgreSQL, Redis Health
+- JWT 로그인과 Customer CRUD MVP
