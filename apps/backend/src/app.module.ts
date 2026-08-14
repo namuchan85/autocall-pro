@@ -6,6 +6,7 @@ import { validateEnvironment } from './config/environment';
 import { RedisModule } from './infrastructure/cache/redis.module';
 import { PrismaModule } from './infrastructure/database/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CustomersModule } from './modules/customers/customers.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AuthModule } from './modules/auth/auth.module';
     RedisModule,
     HealthModule,
     AuthModule,
+    CustomersModule,
   ],
 })
 export class AppModule {}

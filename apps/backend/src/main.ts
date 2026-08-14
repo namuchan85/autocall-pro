@@ -34,7 +34,7 @@ async function bootstrap(): Promise<void> {
   const swaggerConfig = new DocumentBuilder()
     .setTitle('AutoCall Pro API')
     .setDescription('AutoCall Pro REST API documentation')
-    .setVersion('0.2.0')
+    .setVersion('0.3.0')
     .addBearerAuth(
       {
         type: 'http',
