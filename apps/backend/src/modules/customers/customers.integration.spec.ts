@@ -105,7 +105,10 @@ class MemoryCustomerRepository implements CustomerRepository {
     ) {
       return Promise.reject(new CustomerCodeConflictError());
     }
-    Object.assign(current, patch, { updatedAt: new Date() });
+    const definedPatch = Object.fromEntries(
+      Object.entries(patch).filter(([, value]) => value !== undefined),
+    );
+    Object.assign(current, definedPatch, { updatedAt: new Date() });
     return Promise.resolve(current);
   }
 
@@ -307,6 +310,67 @@ describe('Customers HTTP integration', () => {
       .set('Authorization', authorization)
       .send(customerBody({ name: 'Other' }));
     expect(duplicate.status).toBe(409);
+  });
+
+  it('rejects blank customer names and stores trimmed names on create', async () => {
+    await createApp();
+    const authorization = await bearer(ADMIN);
+
+    const emptyName = await request(httpServer())
+      .post('/customers')
+      .set('Authorization', authorization)
+      .send(customerBody({ name: '' }));
+    expect(emptyName.status).toBe(400);
+
+    const whitespaceName = await request(httpServer())
+      .post('/customers')
+      .set('Authorization', authorization)
+      .send(customerBody({ name: '   ' }));
+    expect(whitespaceName.status).toBe(400);
+
+    const trimmedName = await request(httpServer())
+      .post('/customers')
+      .set('Authorization', authorization)
+      .send(customerBody({ name: '  Alice  ' }));
+    expect(trimmedName.status).toBe(201);
+    expect(readName(trimmedName.body)).toBe('Alice');
+  });
+
+  it('rejects blank customer names and stores trimmed names on update', async () => {
+    await createApp();
+    const authorization = await bearer(ADMIN);
+    const created = await request(httpServer())
+      .post('/customers')
+      .set('Authorization', authorization)
+      .send(customerBody({ name: 'Alice' }));
+    expect(created.status).toBe(201);
+    const id = readId(created.body);
+
+    const emptyName = await request(httpServer())
+      .patch(`/customers/${id}`)
+      .set('Authorization', authorization)
+      .send({ name: '' });
+    expect(emptyName.status).toBe(400);
+
+    const whitespaceName = await request(httpServer())
+      .patch(`/customers/${id}`)
+      .set('Authorization', authorization)
+      .send({ name: '   ' });
+    expect(whitespaceName.status).toBe(400);
+
+    const trimmedName = await request(httpServer())
+      .patch(`/customers/${id}`)
+      .set('Authorization', authorization)
+      .send({ name: '  Bob  ' });
+    expect(trimmedName.status).toBe(200);
+    expect(readName(trimmedName.body)).toBe('Bob');
+
+    const omittedName = await request(httpServer())
+      .patch(`/customers/${id}`)
+      .set('Authorization', authorization)
+      .send({ memo: 'keep-name' });
+    expect(omittedName.status).toBe(200);
+    expect(readName(omittedName.body)).toBe('Bob');
   });
 
   it('requires authentication and blocks viewer writes', async () => {

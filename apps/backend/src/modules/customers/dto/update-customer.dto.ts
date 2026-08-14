@@ -1,7 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsBoolean, IsIn, IsOptional, IsString, Matches, MaxLength } from 'class-validator';
+import { Transform } from 'class-transformer';
+import {
+  IsBoolean,
+  IsIn,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+} from 'class-validator';
 import { CUSTOMER_STATUSES, type CustomerStatus } from '../domain/customer.types';
 import { E164_PHONE_MESSAGE, E164_PHONE_PATTERN } from '../validation/phone-number';
+import { trimIfString } from '../validation/trim-string';
 
 export class UpdateCustomerDto {
   @ApiPropertyOptional({ example: 'CUST-001' })
@@ -13,8 +23,10 @@ export class UpdateCustomerDto {
   customerCode?: string;
 
   @ApiPropertyOptional()
+  @Transform(({ value }) => trimIfString(value))
   @IsOptional()
   @IsString()
+  @IsNotEmpty()
   @MaxLength(200)
   name?: string;
 

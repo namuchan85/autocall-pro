@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsBoolean,
   IsIn,
@@ -10,6 +11,7 @@ import {
 } from 'class-validator';
 import { CUSTOMER_STATUSES, type CustomerStatus } from '../domain/customer.types';
 import { E164_PHONE_MESSAGE, E164_PHONE_PATTERN } from '../validation/phone-number';
+import { trimIfString } from '../validation/trim-string';
 
 export class CreateCustomerDto {
   @ApiProperty({ example: 'CUST-001' })
@@ -21,6 +23,7 @@ export class CreateCustomerDto {
   customerCode!: string;
 
   @ApiProperty({ example: 'Hong Gildong' })
+  @Transform(({ value }) => trimIfString(value))
   @IsString()
   @IsNotEmpty()
   @MaxLength(200)

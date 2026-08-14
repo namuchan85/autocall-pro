@@ -21,7 +21,6 @@ export class CustomersService {
       return await this.repository.create({
         ...input,
         customerCode: input.customerCode.trim(),
-        name: input.name.trim(),
       });
     } catch (error) {
       if (error instanceof CustomerCodeConflictError) {
@@ -50,7 +49,6 @@ export class CustomersService {
     const normalized: CustomerPatch = {
       ...patch,
       customerCode: patch.customerCode?.trim(),
-      name: patch.name?.trim(),
     };
     try {
       const updated = await this.repository.update(id, normalized);

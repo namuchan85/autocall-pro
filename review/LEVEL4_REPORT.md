@@ -7,6 +7,7 @@
 - 목록 페이징, keyword 검색, status·doNotCall 필터
 - Soft Delete (`deletedAt`)
 - E.164 전화번호와 customerCode unique 검증
+- name DTO trim 및 공백만 있는 이름 거부
 - Swagger `customers` 태그
 
 ## API
@@ -25,3 +26,8 @@
 ## 이번 단계에 포함하지 않음
 
 CSV Upload, Campaign, Queue, Dialer, Telephony, AI, Scheduler
+
+## Known Issues / Technical Debt
+
+- Soft-deleted `customerCode` remains unique, so the same code cannot be reused.
+- Customer keyword search currently uses case-insensitive contains queries across multiple columns. PostgreSQL indexing/search strategy should be reviewed when production data volume and query patterns are known.

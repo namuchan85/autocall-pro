@@ -35,3 +35,8 @@ Swagger, ValidationPipe, 예외 필터와 Logger 기반을 연결했습니다. B
 - Customer application service는 `CustomerRepository` port에 의존하고 Prisma 구현체는 infrastructure에 둡니다.
 - 목록은 Soft Delete되지 않은 행만 반환하며 DELETE는 `deletedAt`만 설정합니다.
 - 전화번호는 E.164 문자열로 검증·저장하고 로그에 남기지 않습니다.
+- Customer `name`은 DTO에서 trim하고, trim 결과가 빈 문자열이면 요청을 거부합니다.
+
+## Known Issues / Technical Debt
+
+- Customer keyword search currently uses case-insensitive contains queries across multiple columns. PostgreSQL indexing/search strategy should be reviewed when production data volume and query patterns are known.

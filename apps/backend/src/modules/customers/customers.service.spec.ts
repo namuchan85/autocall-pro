@@ -49,7 +49,7 @@ describe('CustomersService', () => {
     await expect(
       new CustomersService(repository).create({
         customerCode: ' CUST-001 ',
-        name: ' Hong Gildong ',
+        name: 'Hong Gildong',
         phoneNumber: '+821012345678',
       }),
     ).resolves.toEqual(record);
