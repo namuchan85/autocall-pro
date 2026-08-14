@@ -12,9 +12,15 @@
 
 ## Level 3 — Core Platform
 
-- 요구사항 승인 후 인증·권한, 고객 도메인, 캠페인 도메인의 최소 골격
-- 개인정보 동의·수신거부·감사 추적 정책을 코드보다 먼저 확정
-- Prisma 최초 모델과 migration 도입
+- User·Role·RefreshToken 모델과 migration
+- JWT 로그인·갱신·로그아웃·현재 사용자 API
+- RBAC Guard와 관리자 로그인 UI
+
+## Level 4 — User Administration
+
+- 관리자 생성·수정·비활성화와 비밀번호 변경
+- 감사 로그와 Refresh Token 세션 관리
+- 개인정보 동의·수신거부 정책 확정
 
 ## 이후 단계
 

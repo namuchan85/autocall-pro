@@ -13,9 +13,13 @@ RUN npm run build --workspace @autocall-pro/backend
 
 FROM node:22-alpine AS runtime
 ENV NODE_ENV=production
-WORKDIR /workspace
+WORKDIR /workspace/apps/backend
 COPY --from=build /workspace/node_modules ./node_modules
-COPY --from=build /workspace/apps/backend/dist ./apps/backend/dist
-COPY --from=build /workspace/apps/backend/package.json ./apps/backend/package.json
+COPY --from=build /workspace/apps/backend/dist ./dist
+COPY --from=build /workspace/apps/backend/package.json ./package.json
+COPY --from=build /workspace/apps/backend/prisma ./prisma
+COPY --from=build /workspace/apps/backend/prisma.config.ts ./prisma.config.ts
+COPY --from=build /workspace/apps/backend/src/generated ./src/generated
+COPY --from=build /workspace/apps/backend/src/modules/auth/security ./src/modules/auth/security
 EXPOSE 3001
-CMD ["node", "apps/backend/dist/src/main.js"]
+CMD ["node", "dist/src/main.js"]

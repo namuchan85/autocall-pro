@@ -16,6 +16,13 @@ Backend는 향후 `presentation → application → domain ← infrastructure` �
 
 Repository 인터페이스는 domain/application 계층에, Prisma 구현체는 infrastructure 계층에 둡니다. DTO는 외부 요청·응답 경계에서만 사용하고 도메인 모델과 분리합니다.
 
+## 인증 경계
+
+- Auth application service는 `AuthRepository` port에 의존하고 Prisma 구현체는 infrastructure에 둡니다.
+- Access Token은 Bearer JWT, Refresh Token은 HttpOnly cookie로 전달합니다.
+- Refresh Token 원문은 저장하지 않고 bcrypt hash와 token ID만 저장하며 갱신 시 회전합니다.
+- JWT Guard와 Roles Guard는 향후 기능 모듈에서 재사용합니다.
+
 ## 현재 범위
 
-Swagger, ValidationPipe, 예외 필터와 Logger 기반을 연결했습니다. Backend 시작 시 Prisma PostgreSQL 어댑터와 Redis 연결을 확인하며 `/health`가 두 인프라의 준비 상태를 검증합니다. Prisma 모델·migration, Queue와 비즈니스 모듈은 만들지 않았습니다.
+Swagger, ValidationPipe, 예외 필터와 Logger 기반을 연결했습니다. Backend 시작 시 Prisma PostgreSQL 어댑터와 Redis 연결을 확인하며 `/health`가 두 인프라의 준비 상태를 검증합니다. Level 3에는 User·RefreshToken과 관리자 인증만 포함하며 고객, 캠페인, Queue 등 비즈니스 모듈은 없습니다.

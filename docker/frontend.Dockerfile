@@ -8,6 +8,8 @@ COPY packages/ui/package.json packages/ui/package.json
 COPY packages/config/package.json packages/config/package.json
 RUN npm ci
 COPY . .
+ARG API_INTERNAL_URL=http://backend:3001
+ENV API_INTERNAL_URL=$API_INTERNAL_URL
 RUN npm run build --workspace @autocall-pro/frontend
 
 FROM node:22-alpine AS runtime
@@ -19,5 +21,6 @@ COPY --from=build /workspace/package.json ./package.json
 COPY --from=build /workspace/apps/frontend/.next ./apps/frontend/.next
 COPY --from=build /workspace/apps/frontend/public ./apps/frontend/public
 COPY --from=build /workspace/apps/frontend/package.json ./apps/frontend/package.json
+COPY --from=build /workspace/apps/frontend/next.config.ts ./apps/frontend/next.config.ts
 EXPOSE 3000
 CMD ["npm", "run", "start", "--workspace", "@autocall-pro/frontend"]

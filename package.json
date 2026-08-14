@@ -21,6 +21,8 @@
     "dev:frontend": "npm run dev --workspace @autocall-pro/frontend",
     "dev:backend": "npm run start:dev --workspace @autocall-pro/backend",
     "prisma:generate": "npm run prisma:generate --workspace @autocall-pro/backend",
+    "prisma:migrate:deploy": "npm run prisma:migrate:deploy --workspace @autocall-pro/backend",
+    "prisma:seed": "npm run prisma:seed --workspace @autocall-pro/backend",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
     "prepare": "husky"

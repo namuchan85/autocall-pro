@@ -33,6 +33,25 @@ services:
     networks:
       - autocall-network
 
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+    command:
+      [
+        'sh',
+        '-c',
+        'export PATH="/workspace/apps/backend/node_modules/.bin:$$PATH"; prisma migrate deploy && prisma db seed',
+      ]
+    environment:
+      DATABASE_URL: postgresql://autocall:autocall@postgres:5432/autocall?schema=public
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?SEED_ADMIN_PASSWORD is required}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - autocall-network
+
   backend:
     restart: unless-stopped
     build:
@@ -41,6 +60,12 @@ services:
     environment:
       DATABASE_URL: postgresql://autocall:autocall@postgres:5432/autocall?schema=public
       REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?JWT_ACCESS_SECRET is required}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:?JWT_REFRESH_SECRET is required}
+      JWT_ACCESS_TTL_SECONDS: 900
+      JWT_REFRESH_TTL_SECONDS: 604800
+      COOKIE_SECURE: 'false'
+      FRONTEND_URL: http://localhost:3000
       NODE_ENV: production
       PORT: 3001
     ports:
@@ -50,6 +75,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     healthcheck:
       test:
         [
@@ -70,8 +97,11 @@ services:
     build:
       context: .
       dockerfile: docker/frontend.Dockerfile
+      args:
+        API_INTERNAL_URL: http://backend:3001
     environment:
       NODE_ENV: production
+      API_INTERNAL_URL: http://backend:3001
     ports:
       - '3000:3000'
     depends_on:

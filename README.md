@@ -1,6 +1,6 @@
 # AutoCall Pro
 
-AI 기반 텔레마케팅 오토콜 시스템을 위한 장기 프로젝트입니다. 현재 Level 2는 비즈니스 기능 없이 실행 가능한 Project Skeleton을 제공합니다.
+AI 기반 텔레마케팅 오토콜 시스템을 위한 장기 프로젝트입니다. 현재 Level 3는 관리자 JWT 인증과 RBAC 기반을 제공합니다.
 
 ## 기술 스택
 
@@ -22,11 +22,13 @@ AI 기반 텔레마케팅 오토콜 시스템을 위한 장기 프로젝트입�
 cp .env.example .env
 npm install
 npm run prisma:generate
+npm run prisma:migrate:deploy
+npm run prisma:seed
 npm run dev:backend
 npm run dev:frontend
 ```
 
-`.env`의 `DATABASE_URL`과 `REDIS_URL`은 로컬 PostgreSQL과 Redis에 맞게 입력해야 합니다. Backend는 기본 3001, Frontend는 3000 포트를 사용합니다.
+`.env`의 인프라 URL, JWT secret, `SEED_ADMIN_PASSWORD`를 직접 입력해야 합니다. JWT secret은 각각 32자 이상이어야 하며 seed 비밀번호는 저장소에 커밋하지 않습니다.
 
 ## Docker 실행
 
@@ -43,6 +45,17 @@ docker compose down
 - Swagger: `http://localhost:3001/swagger`
 
 Health API는 PostgreSQL과 Redis 연결을 모두 확인한 경우에만 `{"status":"ok"}`를 반환합니다. Compose의 계정과 비밀값은 로컬 개발 전용이며 운영 환경에서는 secret manager로 교체해야 합니다.
+
+## 관리자 인증
+
+- Seed email: `admin@autocall.local`
+- Seed password: `.env`의 `SEED_ADMIN_PASSWORD`
+- Login: `POST /auth/login`
+- Refresh: `POST /auth/refresh`
+- Logout: `POST /auth/logout`
+- Current user: `GET /auth/me`
+
+Refresh Token은 HttpOnly 쿠키로 전달되고 DB에는 bcrypt hash만 저장됩니다. 최초 로그인 후 seed 비밀번호를 변경하는 기능은 다음 단계에서 추가해야 합니다.
 
 ## 개발 규칙
 

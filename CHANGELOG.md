@@ -14,3 +14,6 @@
 - Level 2 PostgreSQL·Redis 시작 연결 및 통합 Health API
 - Frontend·Backend 컨테이너 Health Check와 전용 Docker network
 - Prisma PostgreSQL driver adapter와 필수 환경변수 검증
+- Level 3 User·Role·RefreshToken schema, migration, idempotent administrator seed
+- JWT Access·Refresh 인증, HttpOnly cookie, Refresh Token 회전과 RBAC Guard
+- 관리자 로그인 화면과 보호된 빈 Dashboard
