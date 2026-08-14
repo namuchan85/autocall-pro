@@ -10,3 +10,5 @@
 - 환경별 값은 `.env` 또는 배포 환경의 secret manager에서 주입한다.
 - 데이터베이스 스키마 변경은 Prisma migration과 함께 리뷰한다.
 - API 변경은 Swagger 설명과 버전 호환성을 함께 검토한다.
+- 제품 방향은 AutoCall Lite다. 요청된 Lite Level 범위 밖의 전화·문자·AI·SaaS 기능을 추가하지 않는다.
+- `docs/AUTOCALL_LITE.md`를 제품 목적과 로드맵의 기준으로 삼는다.

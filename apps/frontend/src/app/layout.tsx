@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AutoCall Pro',
-  description: 'AI 기반 텔레마케팅 오토콜 시스템',
+  title: 'AutoCall Lite',
+  description: '개인용 오토콜 프로그램',
 };
 
 export default function RootLayout({

@@ -2,7 +2,7 @@
   "name": "autocall-pro",
   "version": "0.1.0",
   "private": true,
-  "description": "AI 기반 텔레마케팅 오토콜 시스템 모노레포",
+  "description": "개인용 AutoCall Lite 모노레포",
   "packageManager": "npm@10.8.2",
   "engines": {
     "node": ">=22.12.0",
