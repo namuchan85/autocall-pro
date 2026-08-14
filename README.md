@@ -1,6 +1,6 @@
 # AutoCall Pro
 
-AI 기반 텔레마케팅 오토콜 시스템을 위한 장기 프로젝트입니다. 현재 Level 3는 관리자 JWT 인증과 RBAC 기반을 제공합니다.
+AI 기반 텔레마케팅 오토콜 시스템을 위한 장기 프로젝트입니다. 현재 Level 4는 관리자 JWT 인증과 고객(Customer) CRUD MVP를 제공합니다.
 
 ## 기술 스택
 
@@ -60,6 +60,18 @@ Refresh Token은 HttpOnly 쿠키로 전달되고 DB에는 bcrypt hash만 저장�
 백엔드 `npm test`는 Jest setup에서 테스트용 환경변수를 주입하므로 로컬 `.env` 없이 통과해야 합니다.
 
 최초 로그인 후 seed 비밀번호를 변경하는 기능은 다음 단계에서 추가해야 합니다.
+
+## 고객 관리
+
+인증된 관리자는 Customer CRUD를 사용할 수 있습니다. 전화번호는 E.164 문자열로 저장하며 DELETE는 Soft Delete입니다.
+
+- `POST /customers`
+- `GET /customers` — page, limit, keyword, status, doNotCall
+- `GET /customers/:id`
+- `PATCH /customers/:id`
+- `DELETE /customers/:id`
+
+VIEWER는 조회만 가능하고, 생성·수정·삭제는 SUPER_ADMIN, ADMIN, MANAGER만 가능합니다. CSV 업로드와 캠페인은 포함하지 않습니다.
 
 ## 개발 규칙
 

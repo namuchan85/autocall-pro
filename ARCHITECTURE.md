@@ -28,4 +28,15 @@ Repository 인터페이스는 domain/application 계층에, Prisma 구현체는 
 
 ## 현재 범위
 
-Swagger, ValidationPipe, 예외 필터와 Logger 기반을 연결했습니다. Backend 시작 시 Prisma PostgreSQL 어댑터와 Redis 연결을 확인하며 `/health`가 두 인프라의 준비 상태를 검증합니다. Level 3에는 User·RefreshToken과 관리자 인증만 포함하며 고객, 캠페인, Queue 등 비즈니스 모듈은 없습니다.
+Swagger, ValidationPipe, 예외 필터와 Logger 기반을 연결했습니다. Backend 시작 시 Prisma PostgreSQL 어댑터와 Redis 연결을 확인하며 `/health`가 두 인프라의 준비 상태를 검증합니다. Level 4에는 관리자 인증과 Customer CRUD MVP가 포함되며 캠페인, Queue, CSV 업로드는 없습니다.
+
+## 고객 경계
+
+- Customer application service는 `CustomerRepository` port에 의존하고 Prisma 구현체는 infrastructure에 둡니다.
+- 목록은 Soft Delete되지 않은 행만 반환하며 DELETE는 `deletedAt`만 설정합니다.
+- 전화번호는 E.164 문자열로 검증·저장하고 로그에 남기지 않습니다.
+- Customer `name`은 DTO에서 trim하고, trim 결과가 빈 문자열이면 요청을 거부합니다.
+
+## Known Issues / Technical Debt
+
+- Customer keyword search currently uses case-insensitive contains queries across multiple columns. PostgreSQL indexing/search strategy should be reviewed when production data volume and query patterns are known.

@@ -16,7 +16,13 @@
 - JWT 로그인·갱신·로그아웃·현재 사용자 API
 - RBAC Guard와 관리자 로그인 UI
 
-## Level 4 — User Administration
+## Level 4 — Customer Management
+
+- Customer 모델, Soft Delete, E.164 전화번호
+- Customer CRUD API, 목록 페이징·검색·필터
+- JWT RBAC로 조회/변경 권한 분리
+
+## Level 5 — User Administration
 
 - 관리자 생성·수정·비활성화와 비밀번호 변경
 - 감사 로그와 Refresh Token 세션 관리

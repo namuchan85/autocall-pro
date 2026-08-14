@@ -19,3 +19,8 @@
 - 관리자 로그인 화면과 보호된 빈 Dashboard
 - 로그인 Redis Rate Limit, dummy bcrypt 비교, Login DTO 복잡도 검증 제거, Auth 통합 테스트
 - 테스트 ConfigModule 격리와 Trusted Proxy 기반 Client IP 식별
+- Level 4 Customer 모델, Soft Delete CRUD, 목록 페이징·검색·필터
+
+### Fixed
+
+- Customer `name`은 DTO에서 trim하며 공백만 있는 값은 거부한다
