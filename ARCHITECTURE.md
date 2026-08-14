@@ -22,6 +22,8 @@ Repository 인터페이스는 domain/application 계층에, Prisma 구현체는 
 - Access Token은 Bearer JWT, Refresh Token은 HttpOnly cookie로 전달합니다.
 - Refresh Token 원문은 저장하지 않고 bcrypt hash와 token ID만 저장하며 갱신 시 회전합니다.
 - JWT Guard와 Roles Guard는 향후 기능 모듈에서 재사용합니다.
+- 로그인 시도는 Redis 고정 윈도우 Rate Limit으로 IP 단위 제한합니다.
+- 존재하지 않는 계정 조회 시에도 dummy bcrypt hash와 `compare()`를 수행해 응답 시간 차이를 줄입니다.
 
 ## 현재 범위
 

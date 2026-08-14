@@ -17,3 +17,4 @@
 - Level 3 User·Role·RefreshToken schema, migration, idempotent administrator seed
 - JWT Access·Refresh 인증, HttpOnly cookie, Refresh Token 회전과 RBAC Guard
 - 관리자 로그인 화면과 보호된 빈 Dashboard
+- 로그인 Redis Rate Limit, dummy bcrypt 비교, Login DTO 복잡도 검증 제거, Auth 통합 테스트

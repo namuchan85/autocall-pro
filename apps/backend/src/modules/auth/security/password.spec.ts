@@ -1,4 +1,9 @@
-import { assertPasswordPolicy, hashPassword, verifyPassword } from './password';
+import {
+  assertPasswordPolicy,
+  DUMMY_PASSWORD_HASH,
+  hashPassword,
+  verifyPassword,
+} from './password';
 
 describe('password security', () => {
   it('hashes passwords and verifies the matching plain text', async () => {
@@ -11,5 +16,9 @@ describe('password security', () => {
 
   it('rejects passwords without the required character groups', () => {
     expect(() => assertPasswordPolicy('onlyletters')).toThrow();
+  });
+
+  it('keeps a dummy bcrypt hash for unknown-user login compares', () => {
+    expect(DUMMY_PASSWORD_HASH.startsWith('$2b$12$')).toBe(true);
   });
 });

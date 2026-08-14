@@ -15,6 +15,7 @@ import {
   ApiCookieAuth,
   ApiOkResponse,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
@@ -26,6 +27,7 @@ import { AuthResponseDto, AuthUserDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
 import { Role } from '../../generated/prisma/enums';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LoginRateLimitGuard } from './guards/login-rate-limit.guard';
 import { RolesGuard } from './guards/roles.guard';
 
 const REFRESH_COOKIE_NAME = 'refresh_token';
@@ -40,8 +42,10 @@ export class AuthController {
 
   @Post('login')
   @HttpCode(200)
+  @UseGuards(LoginRateLimitGuard)
   @ApiOkResponse({ type: AuthResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
+  @ApiTooManyRequestsResponse({ description: 'Too many login attempts' })
   async login(
     @Body() input: LoginDto,
     @Res({ passthrough: true }) response: Response,

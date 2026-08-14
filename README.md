@@ -55,7 +55,9 @@ Health API는 PostgreSQL과 Redis 연결을 모두 확인한 경우에만 `{"sta
 - Logout: `POST /auth/logout`
 - Current user: `GET /auth/me`
 
-Refresh Token은 HttpOnly 쿠키로 전달되고 DB에는 bcrypt hash만 저장됩니다. 최초 로그인 후 seed 비밀번호를 변경하는 기능은 다음 단계에서 추가해야 합니다.
+Refresh Token은 HttpOnly 쿠키로 전달되고 DB에는 bcrypt hash만 저장됩니다. `POST /auth/login`은 Redis 고정 윈도우로 IP당 기본 5회/60초 제한합니다. 기존 ioredis를 사용하므로 별도의 Rate Limit 라이브러리는 추가하지 않았습니다. 통합 테스트에는 Nest HTTP 시나리오 검증용 `supertest`만 개발 의존성으로 추가했습니다.
+
+최초 로그인 후 seed 비밀번호를 변경하는 기능은 다음 단계에서 추가해야 합니다.
 
 ## 개발 규칙
 

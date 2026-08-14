@@ -17,6 +17,8 @@ describe('validateEnvironment', () => {
       COOKIE_SECURE: false,
       JWT_ACCESS_TTL_SECONDS: 900,
       JWT_REFRESH_TTL_SECONDS: 604_800,
+      LOGIN_RATE_LIMIT_MAX: 5,
+      LOGIN_RATE_LIMIT_WINDOW_SECONDS: 60,
     });
   });
 

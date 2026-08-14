@@ -13,7 +13,7 @@ import type {
   AuthUserRecord,
   RefreshTokenPayload,
 } from './domain/auth.types';
-import { hashSecret, verifyPassword, verifySecret } from './security/password';
+import { DUMMY_PASSWORD_HASH, hashSecret, verifyPassword, verifySecret } from './security/password';
 
 export interface AuthSession {
   accessToken: string;
@@ -33,7 +33,9 @@ export class AuthService {
 
   async login(email: string, password: string): Promise<AuthSession> {
     const user = await this.repository.findUserByEmail(email.trim().toLowerCase());
-    if (!user || !user.isActive || !(await verifyPassword(password, user.password))) {
+    const passwordHash = user?.password ?? DUMMY_PASSWORD_HASH;
+    const passwordMatches = await verifyPassword(password, passwordHash);
+    if (!user || !user.isActive || !passwordMatches) {
       throw new UnauthorizedException('Invalid email or password');
     }
 

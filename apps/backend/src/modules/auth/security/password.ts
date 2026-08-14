@@ -7,6 +7,9 @@ export const PASSWORD_PATTERN_MESSAGE =
 
 const DEFAULT_BCRYPT_ROUNDS = 12;
 
+/** Precomputed bcrypt hash used only to equalize login compare timing. */
+export const DUMMY_PASSWORD_HASH = '$2b$12$6vSvsa9GCu2woUlCJ9RzLO0JOEn08Dg4UCBVsZDUHEHgQxV1DAuQe';
+
 export function assertPasswordPolicy(password: string): void {
   if (password.length < PASSWORD_MIN_LENGTH || !PASSWORD_PATTERN.test(password)) {
     throw new Error(PASSWORD_PATTERN_MESSAGE);

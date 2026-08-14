@@ -3,7 +3,7 @@
 ## Automated
 
 - `npm run lint`: 통과
-- `npm run test`: 6 suites, 11 tests 통과
+- `npm run test`: 9 suites, 20 tests 통과
 - `npm run build`: Backend·Frontend 통과
 - `npm run format:check`: 통과
 - `npm audit`: 취약점 0건
@@ -18,6 +18,12 @@
 - password 정책 거부
 - 환경변수 정규화·필수값 검증
 - 인프라 Health 응답
+- 존재하지 않는 계정에 dummy bcrypt compare
+- 로그인 Rate Limit Guard 허용·429
+- Redis Rate Limiter 한도 초과와 Redis 장애 시 실패 닫힘
+- Login → Refresh 회전 → Logout → Refresh 실패 통합 시나리오
+- 로그인 비밀번호 복잡도 정책 미적용
+- 로그인 Rate Limit 초과 429
 
 ## Database
 

@@ -1,8 +1,10 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { UnauthorizedException } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
 import type { AuthRepository } from './domain/auth.repository';
 import { AuthService } from './auth.service';
+import * as password from './security/password';
 import { hashPassword } from './security/password';
 
 const USER_ID = '00000000-0000-4000-8000-000000000001';
@@ -32,6 +34,10 @@ function createService(repository: AuthRepository): AuthService {
 }
 
 describe('AuthService', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it('issues access and refresh tokens for valid credentials', async () => {
     const repository = createRepository();
     repository.findUserByEmail.mockResolvedValue({
@@ -49,6 +55,17 @@ describe('AuthService', () => {
     expect(result.refreshToken).toEqual(expect.any(String));
     expect(result.user).not.toHaveProperty('password');
     expect(repository.createRefreshToken.mock.calls).toHaveLength(1);
+  });
+
+  it('compares against a dummy hash when the user does not exist', async () => {
+    const repository = createRepository();
+    repository.findUserByEmail.mockResolvedValue(null);
+    const verifySpy = jest.spyOn(password, 'verifyPassword');
+
+    await expect(
+      createService(repository).login('unknown@autocall.local', 'WrongPass1!'),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(verifySpy).toHaveBeenCalledWith('WrongPass1!', password.DUMMY_PASSWORD_HASH);
   });
 
   it('rejects invalid credentials without revealing which field failed', async () => {

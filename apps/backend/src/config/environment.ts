@@ -32,15 +32,34 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     config.JWT_REFRESH_TTL_SECONDS ?? 604_800,
     'JWT_REFRESH_TTL_SECONDS',
   );
+  const loginRateLimitMax = optionalPositiveInteger(
+    config.LOGIN_RATE_LIMIT_MAX,
+    5,
+    'LOGIN_RATE_LIMIT_MAX',
+  );
+  const loginRateLimitWindowSeconds = optionalPositiveInteger(
+    config.LOGIN_RATE_LIMIT_WINDOW_SECONDS,
+    60,
+    'LOGIN_RATE_LIMIT_WINDOW_SECONDS',
+  );
 
   return {
     ...config,
     COOKIE_SECURE: parseBoolean(config.COOKIE_SECURE ?? false, 'COOKIE_SECURE'),
     JWT_ACCESS_TTL_SECONDS: accessTtl,
     JWT_REFRESH_TTL_SECONDS: refreshTtl,
+    LOGIN_RATE_LIMIT_MAX: loginRateLimitMax,
+    LOGIN_RATE_LIMIT_WINDOW_SECONDS: loginRateLimitWindowSeconds,
     NODE_ENV: config.NODE_ENV ?? 'development',
     PORT: port,
   };
+}
+
+function optionalPositiveInteger(value: unknown, fallback: number, name: string): number {
+  if (value === undefined || value === '') {
+    return fallback;
+  }
+  return parsePositiveInteger(value, name);
 }
 
 function parsePositiveInteger(value: unknown, name: string): number {

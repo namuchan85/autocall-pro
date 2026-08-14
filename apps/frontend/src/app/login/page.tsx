@@ -53,7 +53,6 @@ export default function LoginPage() {
               name="password"
               type="password"
               autoComplete="current-password"
-              minLength={10}
               required
             />
           </label>

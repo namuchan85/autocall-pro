@@ -1,19 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, Matches, MinLength } from 'class-validator';
-import {
-  PASSWORD_MIN_LENGTH,
-  PASSWORD_PATTERN,
-  PASSWORD_PATTERN_MESSAGE,
-} from '../security/password';
+import { IsEmail, IsNotEmpty, IsString, MaxLength } from 'class-validator';
 
 export class LoginDto {
   @ApiProperty({ example: 'admin@autocall.local' })
   @IsEmail()
   email!: string;
 
-  @ApiProperty({ example: 'ChangeMe123!', minLength: PASSWORD_MIN_LENGTH })
+  @ApiProperty({ example: 'your-password' })
   @IsString()
-  @MinLength(PASSWORD_MIN_LENGTH)
-  @Matches(PASSWORD_PATTERN, { message: PASSWORD_PATTERN_MESSAGE })
+  @IsNotEmpty()
+  @MaxLength(1024)
   password!: string;
 }
