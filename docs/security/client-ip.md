@@ -29,3 +29,5 @@
 | `TRUST_PROXY_HOPS` | `1`     | 신뢰할 프록시 hop 수 |
 
 구현 위치: `apps/backend/src/common/http/client-ip.ts`, `apps/backend/src/main.ts`.
+
+Docker Compose에서 Next.js 프록시를 통한 확인 절차와 결과 기록 양식은 `docs/security/client-ip-verification.md`를 사용합니다.
