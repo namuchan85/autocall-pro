@@ -31,7 +31,6 @@
 - `docker/frontend.Dockerfile`
 - `.env.example`
 - `.gitignore`
-- `.github/workflows/ci.yml`
 - `package.json`
 - `package-lock.json`
 
