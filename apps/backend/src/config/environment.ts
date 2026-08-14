@@ -42,6 +42,7 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     60,
     'LOGIN_RATE_LIMIT_WINDOW_SECONDS',
   );
+  const trustProxyHops = optionalPositiveInteger(config.TRUST_PROXY_HOPS, 1, 'TRUST_PROXY_HOPS');
 
   return {
     ...config,
@@ -52,6 +53,8 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     LOGIN_RATE_LIMIT_WINDOW_SECONDS: loginRateLimitWindowSeconds,
     NODE_ENV: config.NODE_ENV ?? 'development',
     PORT: port,
+    TRUST_PROXY: parseBoolean(config.TRUST_PROXY ?? false, 'TRUST_PROXY'),
+    TRUST_PROXY_HOPS: trustProxyHops,
   };
 }
 

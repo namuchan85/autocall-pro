@@ -3,7 +3,7 @@
 ## Automated
 
 - `npm run lint`: 통과
-- `npm run test`: 9 suites, 20 tests 통과
+- `npm run test`: 11 suites, 26 tests 통과
 - `npm run build`: Backend·Frontend 통과
 - `npm run format:check`: 통과
 - `npm audit`: 취약점 0건
@@ -22,6 +22,8 @@
 - 로그인 Rate Limit Guard 허용·429
 - Redis Rate Limiter 한도 초과와 Redis 장애 시 실패 닫힘
 - Login → Refresh 회전 → Logout → Refresh 실패 통합 시나리오
+- ConfigModule 테스트 환경이 host `.env`와 독립적으로 동작
+- Client IP 직접 연결 vs Trusted Proxy 식별
 - 로그인 비밀번호 복잡도 정책 미적용
 - 로그인 Rate Limit 초과 429
 

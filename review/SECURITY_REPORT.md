@@ -11,6 +11,7 @@
 - 로그인 실패 응답으로 계정 존재 여부를 노출하지 않음
 - 존재하지 않는 계정도 dummy bcrypt hash와 compare를 수행
 - `POST /auth/login`에 Redis IP Rate Limit 적용 (기본 5회/60초)
+- Rate Limit Client IP는 `TRUST_PROXY`가 꺼진 경우 TCP 피어만 사용하고, 켜진 경우 Trusted Proxy hop 전략을 사용
 - 로그인 DTO는 비밀번호 복잡도 정책을 적용하지 않음
 - 비활성 사용자는 로그인과 JWT 인증에서 차단
 - API 응답과 로그에서 password·token 원문 제외
@@ -23,6 +24,7 @@
 - MFA, 계정 잠금 미구현
 - Access Token sessionStorage 보관은 XSS 영향을 받으므로 CSP와 BFF 전략 검토 필요
 - Refresh Token 재사용 탐지와 전체 token family 폐기 미구현
+- 운영에서 리버스 프록시 뒤에 둘 때는 `TRUST_PROXY=true`와 정확한 hop 수가 필요함. 정책은 `docs/security/client-ip.md` 참조
 - 운영 환경은 HTTPS와 `COOKIE_SECURE=true`가 필수
 
 ## 비밀정보 관리

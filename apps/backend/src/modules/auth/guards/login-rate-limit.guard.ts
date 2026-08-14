@@ -6,7 +6,9 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { Request, Response } from 'express';
+import { resolveClientIp } from '../../../common/http/client-ip';
 import { LOGIN_RATE_LIMITER, type LoginRateLimiter } from '../domain/login-rate-limiter';
 
 @Injectable()
@@ -14,6 +16,7 @@ export class LoginRateLimitGuard implements CanActivate {
   constructor(
     @Inject(LOGIN_RATE_LIMITER)
     private readonly limiter: LoginRateLimiter,
+    private readonly config: ConfigService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -29,7 +32,9 @@ export class LoginRateLimitGuard implements CanActivate {
   }
 
   private clientIdentity(request: Request): string {
-    const ip = request.ip ?? request.socket.remoteAddress;
-    return ip && ip.length > 0 ? ip : 'unknown';
+    return resolveClientIp(request, {
+      trustProxy: this.config.getOrThrow<boolean>('TRUST_PROXY'),
+      hops: this.config.getOrThrow<number>('TRUST_PROXY_HOPS'),
+    });
   }
 }

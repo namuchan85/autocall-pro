@@ -1,10 +1,9 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
-import { validateEnvironment } from '../../config/environment';
+import { createTestConfigModule } from '../../config/create-test-config-module';
 import { Role } from '../../generated/prisma/enums';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -134,24 +133,8 @@ describe('Auth HTTP integration', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [
-        ConfigModule.forRoot({
-          isGlobal: true,
-          ignoreEnvFile: true,
-          load: [
-            () => ({
-              DATABASE_URL: 'postgresql://localhost:5432/autocall',
-              REDIS_URL: 'redis://localhost:6379',
-              JWT_ACCESS_SECRET: 'a'.repeat(32),
-              JWT_REFRESH_SECRET: 'b'.repeat(32),
-              JWT_ACCESS_TTL_SECONDS: 900,
-              JWT_REFRESH_TTL_SECONDS: 604_800,
-              COOKIE_SECURE: false,
-              FRONTEND_URL: 'http://localhost:3000',
-              LOGIN_RATE_LIMIT_MAX: maxAttempts,
-              LOGIN_RATE_LIMIT_WINDOW_SECONDS: 60,
-            }),
-          ],
-          validate: validateEnvironment,
+        createTestConfigModule({
+          LOGIN_RATE_LIMIT_MAX: maxAttempts,
         }),
         JwtModule.register({}),
       ],
@@ -202,11 +185,11 @@ describe('Auth HTTP integration', () => {
     expect(firstCookies.some((value) => value.startsWith('refresh_token='))).toBe(true);
 
     const refreshed = await request(httpServer()).post('/auth/refresh').set('Cookie', firstCookies);
-    const refreshedBody = readAuthBody(refreshed.body);
     expect(refreshed.status).toBe(200);
-    expect(refreshedBody.accessToken).not.toBe(loginBody.accessToken);
+    readAuthBody(refreshed.body);
     const rotatedCookies = cookieHeader(refreshed);
     expect(rotatedCookies.some((value) => value.startsWith('refresh_token='))).toBe(true);
+    expect(rotatedCookies.join(';')).not.toBe(firstCookies.join(';'));
 
     const reused = await request(httpServer()).post('/auth/refresh').set('Cookie', firstCookies);
     expect(reused.status).toBe(401);

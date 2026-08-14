@@ -19,6 +19,8 @@ describe('validateEnvironment', () => {
       JWT_REFRESH_TTL_SECONDS: 604_800,
       LOGIN_RATE_LIMIT_MAX: 5,
       LOGIN_RATE_LIMIT_WINDOW_SECONDS: 60,
+      TRUST_PROXY: false,
+      TRUST_PROXY_HOPS: 1,
     });
   });
 
