@@ -25,7 +25,7 @@ async function bootstrap(): Promise<void> {
     .setDescription('AutoCall Pro REST API documentation')
     .setVersion('0.1.0')
     .build();
-  SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
+  SwaggerModule.setup('swagger', app, SwaggerModule.createDocument(app, swaggerConfig));
 
   const port = config.get<number>('PORT', 3001);
   await app.listen(port);

@@ -8,6 +8,7 @@ COPY packages/ui/package.json packages/ui/package.json
 COPY packages/config/package.json packages/config/package.json
 RUN npm ci
 COPY . .
+RUN DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/placeholder npm run prisma:generate
 RUN npm run build --workspace @autocall-pro/backend
 
 FROM node:22-alpine AS runtime
@@ -17,4 +18,4 @@ COPY --from=build /workspace/node_modules ./node_modules
 COPY --from=build /workspace/apps/backend/dist ./apps/backend/dist
 COPY --from=build /workspace/apps/backend/package.json ./apps/backend/package.json
 EXPOSE 3001
-CMD ["node", "apps/backend/dist/main.js"]
+CMD ["node", "apps/backend/dist/src/main.js"]

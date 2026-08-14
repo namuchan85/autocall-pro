@@ -10,7 +10,7 @@ Backend는 향후 `presentation → application → domain ← infrastructure` �
 
 - `common`: 전역 필터, 로깅, 파이프 등 횡단 관심사
 - `config`: 환경 설정과 검증
-- `modules`: 기능별 독립 모듈. Level 1에서는 비어 있음
+- `modules`: 기능별 독립 모듈. Level 2에서는 비어 있음
 - `shared`: 여러 모듈이 공유하는 도메인 중립 코드
 - `infrastructure`: Prisma, Redis, Queue, 외부 시스템 어댑터
 
@@ -18,4 +18,4 @@ Repository 인터페이스는 domain/application 계층에, Prisma 구현체는 
 
 ## 현재 범위
 
-Swagger, ValidationPipe, 예외 필터와 Logger 기반만 연결했습니다. Prisma는 모델 없이 초기화했으며 Redis, BullMQ, WebSocket 패키지는 설치만 되어 있습니다.
+Swagger, ValidationPipe, 예외 필터와 Logger 기반을 연결했습니다. Backend 시작 시 Prisma PostgreSQL 어댑터와 Redis 연결을 확인하며 `/health`가 두 인프라의 준비 상태를 검증합니다. Prisma 모델·migration, Queue와 비즈니스 모듈은 만들지 않았습니다.
