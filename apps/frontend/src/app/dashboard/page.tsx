@@ -24,6 +24,13 @@ interface CustomerListResponse {
   items: CustomerItem[];
 }
 
+function parseCustomerStatus(value: string): CustomerItem['status'] {
+  if (value === 'ACTIVE' || value === 'INACTIVE' || value === 'BLOCKED') {
+    return value;
+  }
+  return 'ACTIVE';
+}
+
 function callDisabledReason(customer: CustomerItem): string | null {
   if (customer.doNotCall) {
     return '수신거부 고객 발신 불가';
@@ -56,6 +63,8 @@ export default function DashboardPage() {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [memo, setMemo] = useState('');
+  const [status, setStatus] = useState<CustomerItem['status']>('ACTIVE');
+  const [doNotCall, setDoNotCall] = useState(false);
 
   const canManage =
     user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
@@ -91,6 +100,8 @@ export default function DashboardPage() {
     setName('');
     setPhoneNumber('');
     setMemo('');
+    setStatus('ACTIVE');
+    setDoNotCall(false);
   }
 
   function startEdit(customer: CustomerItem): void {
@@ -98,6 +109,8 @@ export default function DashboardPage() {
     setName(customer.name);
     setPhoneNumber(formatPhoneForDisplay(customer.phoneNumber));
     setMemo(customer.memo ?? '');
+    setStatus(customer.status);
+    setDoNotCall(customer.doNotCall);
     setFormError('');
     setFormSuccess('');
   }
@@ -122,6 +135,8 @@ export default function DashboardPage() {
         name: name.trim(),
         phoneNumber: normalizedPhone,
         memo: memo.trim() ? memo.trim() : null,
+        status,
+        doNotCall,
       };
       const response = editingId
         ? await authorizedFetch(`/customers/${editingId}`, {
@@ -251,6 +266,29 @@ export default function DashboardPage() {
                 maxLength={2000}
               />
             </label>
+            <label className="block">
+              <span className="mb-2 block text-sm text-slate-300">상태</span>
+              <select
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
+                value={status}
+                onChange={(event) => setStatus(parseCustomerStatus(event.target.value))}
+              >
+                <option value="ACTIVE">ACTIVE</option>
+                <option value="INACTIVE">INACTIVE</option>
+                <option value="BLOCKED">BLOCKED</option>
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm text-slate-300">수신거부 (doNotCall)</span>
+              <select
+                className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
+                value={doNotCall ? 'true' : 'false'}
+                onChange={(event) => setDoNotCall(event.target.value === 'true')}
+              >
+                <option value="false">false</option>
+                <option value="true">true</option>
+              </select>
+            </label>
             <div className="flex gap-3">
               <button
                 className="rounded-lg bg-cyan-500 px-4 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
@@ -313,7 +351,10 @@ export default function DashboardPage() {
                     {customer.memo ? (
                       <p className="mt-1 text-sm text-slate-500">{customer.memo}</p>
                     ) : null}
-                    <p className="mt-1 text-xs text-slate-500">{statusLabel(customer.status)}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {statusLabel(customer.status)}
+                      {customer.doNotCall ? ' · 수신거부' : ''}
+                    </p>
                   </div>
                   {canManage ? (
                     <div className="flex shrink-0 flex-col items-end gap-2">

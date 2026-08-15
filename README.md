@@ -27,14 +27,15 @@ Browser → Frontend(:3000) → Windows NestJS backend(:3001) → C:\platform-to
 Windows backend → Docker PostgreSQL(:5432), Docker Redis(:6379)
 ```
 
-`.env`는 `.env.example`을 복사한 뒤 로컬에서만 채웁니다. Windows native backend는 Docker 호스트 이름(`postgres`, `redis`)이 아니라 `localhost`를 써야 합니다.
+`.env`는 `.env.example`을 복사한 뒤 로컬에서만 채웁니다. Windows native backend는 Docker 호스트 이름(`postgres`, `redis`)이 아니라 `localhost`를 써야 합니다. 실제 secret과 device id는 Git에 커밋하지 않습니다.
 
 ```env
-DATABASE_URL=postgresql://autocall:autocall@localhost:5432/autocall?schema=public
-REDIS_URL=redis://localhost:6379
-FRONTEND_URL=http://localhost:3000
-PORT=3001
-ADB_PATH=C:\platform-tools\adb.exe
+DATABASE_URL=
+REDIS_URL=
+JWT_ACCESS_SECRET=
+JWT_REFRESH_SECRET=
+SEED_ADMIN_PASSWORD=
+ADB_PATH=
 ADB_DEVICE_ID=
 ```
 
