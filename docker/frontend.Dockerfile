@@ -8,7 +8,7 @@ COPY packages/ui/package.json packages/ui/package.json
 COPY packages/config/package.json packages/config/package.json
 RUN npm ci
 COPY . .
-ARG API_INTERNAL_URL=http://backend:3001
+ARG API_INTERNAL_URL=http://host.docker.internal:3001
 ENV API_INTERNAL_URL=$API_INTERNAL_URL
 RUN npm run build --workspace @autocall-pro/frontend
 

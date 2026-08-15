@@ -53,7 +53,9 @@ apps/
     modules/settings   예정 — 아직 없음
 
 apps/backend/prisma/ PostgreSQL + Prisma
-docker-compose.yml   postgres, redis, migrate, backend, frontend
+docker-compose.yml   postgres, redis, migrate, frontend
+                     Windows native backend가 ADB 발신에 사용됨
+                     Docker backend는 profile `docker-backend` (USB 불가)
 ```
 
 빈 `messages` 모듈은 만들지 않는다. 음성·DTMF는 Level 3에서 추가한다.
@@ -122,12 +124,13 @@ Windows PC에서 USB 연결된 Galaxy를 ADB로 제어해 고객 번호 1통을 
 
 준비·수동 검증:
 
-1. `adb devices`에서 Galaxy가 `device`인지 확인한다
-2. `.env`에 `ADB_PATH`, `ADB_DEVICE_ID`를 넣는다
-3. `npm run prisma:migrate:deploy`로 Call 테이블을 적용한다
-4. 테스트용 고객 1명을 저장한다
-5. 대시보드에서 「전화 걸기」를 눌러 Galaxy 발신을 확인한다
-6. CI/단위 테스트에서는 실제 ADB를 실행하지 않는다
+1. Docker PostgreSQL/Redis를 띄운다 (`npm run docker:infra`)
+2. `adb devices`에서 Galaxy가 `device`인지 확인한다
+3. `.env`에 `ADB_PATH`, `ADB_DEVICE_ID`를 넣는다 (값은 Git에 커밋하지 않는다)
+4. Windows에서 `npm run dev:backend`를 실행한다
+5. Frontend는 Docker 또는 `npm run dev:frontend`
+6. 대시보드에서 「전화 걸기」를 눌러 Galaxy 발신을 확인한다
+7. CI/단위 테스트에서는 실제 ADB를 실행하지 않는다
 
 ### Lite Level 3 — 음성 안내 + DTMF
 

@@ -22,7 +22,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
       return toRecord(
         await this.prisma.customer.create({
           data: {
-            customerCode: input.customerCode,
+            customerCode: requiredCustomerCode(input.customerCode),
             name: input.name,
             phoneNumber: input.phoneNumber,
             company: input.company,
@@ -109,6 +109,13 @@ export class PrismaCustomerRepository implements CustomerRepository {
     });
     return result.count === 1;
   }
+}
+
+function requiredCustomerCode(value: string | undefined): string {
+  if (!value) {
+    throw new Error('customerCode is required');
+  }
+  return value;
 }
 
 function uniqueConflictOr(error: unknown): Error {

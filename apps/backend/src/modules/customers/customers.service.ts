@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { CustomerCodeConflictError } from './domain/customer.errors';
 import { CUSTOMER_REPOSITORY, type CustomerRepository } from './domain/customer.repository';
@@ -20,7 +21,9 @@ export class CustomersService {
     try {
       return await this.repository.create({
         ...input,
-        customerCode: input.customerCode.trim(),
+        customerCode: input.customerCode?.trim() || generateCustomerCode(),
+        status: input.status ?? 'ACTIVE',
+        doNotCall: input.doNotCall ?? false,
       });
     } catch (error) {
       if (error instanceof CustomerCodeConflictError) {
@@ -70,4 +73,8 @@ export class CustomersService {
       throw new NotFoundException('Customer not found');
     }
   }
+}
+
+function generateCustomerCode(): string {
+  return `CUST-${randomUUID().replaceAll('-', '').slice(0, 12).toUpperCase()}`;
 }

@@ -23,6 +23,7 @@
     "prisma:generate": "npm run prisma:generate --workspace @autocall-pro/backend",
     "prisma:migrate:deploy": "npm run prisma:migrate:deploy --workspace @autocall-pro/backend",
     "prisma:seed": "npm run prisma:seed --workspace @autocall-pro/backend",
+    "docker:infra": "docker compose up -d postgres redis",
     "docker:up": "docker compose up --build",
     "docker:down": "docker compose down",
     "prepare": "husky"

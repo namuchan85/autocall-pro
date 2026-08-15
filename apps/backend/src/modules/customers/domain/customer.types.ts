@@ -16,7 +16,7 @@ export interface CustomerRecord {
 }
 
 export interface NewCustomer {
-  customerCode: string;
+  customerCode?: string;
   name: string;
   phoneNumber: string;
   company?: string;

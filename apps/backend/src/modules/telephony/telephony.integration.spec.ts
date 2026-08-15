@@ -44,7 +44,7 @@ class MemoryCustomerRepository implements CustomerRepository {
     const now = new Date();
     const record: CustomerRecord = {
       id: '11111111-1111-4111-8111-111111111111',
-      customerCode: input.customerCode,
+      customerCode: input.customerCode ?? 'CUST-UNSPECIFIED',
       name: input.name,
       phoneNumber: input.phoneNumber,
       company: input.company ?? null,
@@ -140,7 +140,10 @@ describe('Telephony HTTP integration', () => {
   let startCall: jest.Mock;
   let listDevices: jest.Mock;
 
-  async function createApp(customers: CustomerRecord[]): Promise<void> {
+  async function createApp(
+    customers: CustomerRecord[],
+    configOverrides: Record<string, unknown> = {},
+  ): Promise<void> {
     calls = new MemoryCallRepository();
     listDevices = jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'device' }]);
     startCall = jest.fn().mockResolvedValue(undefined);
@@ -152,7 +155,7 @@ describe('Telephony HTTP integration', () => {
 
     const moduleRef = await Test.createTestingModule({
       imports: [
-        createTestConfigModule(),
+        createTestConfigModule(configOverrides),
         PassportModule.register({ defaultStrategy: 'jwt' }),
         JwtModule.register({}),
       ],
@@ -218,6 +221,46 @@ describe('Telephony HTTP integration', () => {
       .get('/telephony/device')
       .set('Authorization', await bearer());
     expect(response.status).toBe(503);
+  });
+
+  it('returns 503 when ADB_PATH is not configured', async () => {
+    await createApp([sampleCustomer()], { ADB_PATH: '' });
+    const response = await request(httpServer())
+      .get('/telephony/device')
+      .set('Authorization', await bearer());
+    expect(response.status).toBe(503);
+    expect(readMessage(response.body)).toBe('ADB executable is not configured');
+    expect(listDevices).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when ADB_DEVICE_ID is not configured', async () => {
+    await createApp([sampleCustomer()], { ADB_DEVICE_ID: '' });
+    const response = await request(httpServer())
+      .get('/telephony/device')
+      .set('Authorization', await bearer());
+    expect(response.status).toBe(503);
+    expect(readMessage(response.body)).toBe('ADB device is not configured');
+    expect(listDevices).not.toHaveBeenCalled();
+  });
+
+  it('returns 503 when Galaxy USB debugging is unauthorized', async () => {
+    await createApp([sampleCustomer()]);
+    listDevices.mockResolvedValue([{ id: DEVICE_ID, state: 'unauthorized' }]);
+    const response = await request(httpServer())
+      .get('/telephony/device')
+      .set('Authorization', await bearer());
+    expect(response.status).toBe(503);
+    expect(readMessage(response.body)).toBe('Galaxy USB debugging is unauthorized');
+  });
+
+  it('returns 503 when Galaxy is offline', async () => {
+    await createApp([sampleCustomer()]);
+    listDevices.mockResolvedValue([{ id: DEVICE_ID, state: 'offline' }]);
+    const response = await request(httpServer())
+      .get('/telephony/device')
+      .set('Authorization', await bearer());
+    expect(response.status).toBe(503);
+    expect(readMessage(response.body)).toBe('Galaxy is offline');
   });
 
   it('places a call after loading a customer and records STARTED', async () => {
@@ -309,6 +352,18 @@ describe('Telephony HTTP integration', () => {
     expect(calls.records).toHaveLength(0);
   });
 });
+
+function readMessage(body: unknown): string {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'message' in body &&
+    typeof body.message === 'string'
+  ) {
+    return body.message;
+  }
+  throw new Error('Unexpected error response');
+}
 
 function readStatus(body: unknown): string {
   if (

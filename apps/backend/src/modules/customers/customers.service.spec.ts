@@ -57,7 +57,32 @@ describe('CustomersService', () => {
       customerCode: 'CUST-001',
       name: 'Hong Gildong',
       phoneNumber: '+821012345678',
+      status: 'ACTIVE',
+      doNotCall: false,
     });
+  });
+
+  it('generates a customer code when it is omitted', async () => {
+    const record = createRecord();
+    let savedCode = '';
+    const create = jest.fn().mockImplementation((input: { customerCode: string }) => {
+      savedCode = input.customerCode;
+      return Promise.resolve(record);
+    });
+    const repository = createRepository({ create });
+
+    await new CustomersService(repository).create({
+      name: 'Hong Gildong',
+      phoneNumber: '+821012345678',
+    });
+    expect(create).toHaveBeenCalledWith({
+      name: 'Hong Gildong',
+      phoneNumber: '+821012345678',
+      status: 'ACTIVE',
+      doNotCall: false,
+      customerCode: savedCode,
+    });
+    expect(savedCode).toMatch(/^CUST-[A-Z0-9]{12}$/);
   });
 
   it('rejects a duplicated customer code', async () => {

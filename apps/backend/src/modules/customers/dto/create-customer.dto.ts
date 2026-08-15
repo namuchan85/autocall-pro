@@ -10,17 +10,21 @@ import {
   MaxLength,
 } from 'class-validator';
 import { CUSTOMER_STATUSES, type CustomerStatus } from '../domain/customer.types';
-import { E164_PHONE_MESSAGE, E164_PHONE_PATTERN } from '../validation/phone-number';
+import {
+  E164_PHONE_MESSAGE,
+  E164_PHONE_PATTERN,
+  normalizePhoneNumber,
+} from '../validation/phone-number';
 import { trimIfString } from '../validation/trim-string';
 
 export class CreateCustomerDto {
-  @ApiProperty({ example: 'CUST-001' })
+  @ApiPropertyOptional({ example: 'CUST-001' })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @Matches(/^[A-Za-z0-9_-]{2,64}$/, {
     message: 'customerCode must be 2-64 letters, numbers, underscores, or hyphens',
   })
-  customerCode!: string;
+  customerCode?: string;
 
   @ApiProperty({ example: 'Hong Gildong' })
   @Transform(({ value }) => trimIfString(value))
@@ -29,7 +33,10 @@ export class CreateCustomerDto {
   @MaxLength(200)
   name!: string;
 
-  @ApiProperty({ example: '+821012345678' })
+  @ApiProperty({ example: '010-1234-5678' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? normalizePhoneNumber(value) : value,
+  )
   @IsString()
   @Matches(E164_PHONE_PATTERN, { message: E164_PHONE_MESSAGE })
   phoneNumber!: string;

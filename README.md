@@ -20,33 +20,72 @@
 
 ## 로컬 실행
 
-```bash
-cp .env.example .env
+Galaxy 발신을 쓰는 기본 구조는 다음과 같습니다.
+
+```text
+Browser → Frontend(:3000) → Windows NestJS backend(:3001) → C:\platform-tools\adb.exe → USB Galaxy
+Windows backend → Docker PostgreSQL(:5432), Docker Redis(:6379)
+```
+
+`.env`는 `.env.example`을 복사한 뒤 로컬에서만 채웁니다. Windows native backend는 Docker 호스트 이름(`postgres`, `redis`)이 아니라 `localhost`를 써야 합니다.
+
+```env
+DATABASE_URL=postgresql://autocall:autocall@localhost:5432/autocall?schema=public
+REDIS_URL=redis://localhost:6379
+FRONTEND_URL=http://localhost:3000
+PORT=3001
+ADB_PATH=C:\platform-tools\adb.exe
+ADB_DEVICE_ID=
+```
+
+`ADB_DEVICE_ID`에는 `adb devices`에 나온 시리얼만 넣고 Git에 커밋하지 않습니다. JWT secret은 각각 32자 이상이어야 합니다.
+
+Windows CMD 예:
+
+```bat
+cd /d "C:\Users\namuc\made program\AUTO-call"
+copy .env.example .env
 npm install
+npm run docker:infra
+docker compose up migrate
 npm run prisma:generate
-npm run prisma:migrate:deploy
-npm run prisma:seed
 npm run dev:backend
+```
+
+다른 터미널에서 frontend는 Docker로 두거나 로컬로 실행합니다.
+
+```bat
+docker compose up -d --build frontend
+```
+
+또는:
+
+```bat
 npm run dev:frontend
 ```
-
-`.env`의 인프라 URL, JWT secret, `SEED_ADMIN_PASSWORD`, 로컬 발신용 `ADB_PATH`와 `ADB_DEVICE_ID`를 직접 입력해야 합니다. JWT secret은 각각 32자 이상이어야 하며 seed 비밀번호와 device id는 저장소에 커밋하지 않습니다.
-
-## Docker 실행
-
-```bash
-docker compose up --build
-docker compose ps
-docker compose down
-```
-
-정상 실행 후 다음 주소를 확인합니다.
 
 - Frontend: `http://localhost:3000`
 - Backend health: `http://localhost:3001/health`
 - Swagger: `http://localhost:3001/swagger`
 
-Health API는 PostgreSQL과 Redis 연결을 모두 확인한 경우에만 `{"status":"ok"}`를 반환합니다. Compose의 계정과 비밀값은 로컬 개발 전용이며 운영 환경에서는 secret manager로 교체해야 합니다.
+## Docker 실행
+
+PostgreSQL, Redis, migrate, frontend만 Compose 기본 대상입니다. Docker backend는 USB/ADB에 접근하지 못하므로 기본 기동하지 않습니다.
+
+```bash
+npm run docker:infra
+docker compose up -d --build frontend
+docker compose ps
+docker compose down
+```
+
+ADB 없이 Docker backend를 띄울 때만:
+
+```bash
+docker compose --profile docker-backend up -d --build backend
+```
+
+Compose의 계정과 비밀값은 로컬 개발 전용입니다. Health API는 PostgreSQL과 Redis 연결을 모두 확인한 경우에만 `{"status":"ok"}`를 반환합니다.
 
 ## 관리자 인증
 
@@ -65,7 +104,7 @@ Refresh Token은 HttpOnly 쿠키로 전달되고 DB에는 bcrypt hash만 저장�
 
 ## 고객 관리
 
-인증된 사용자는 Customer CRUD로 전화번호를 저장·조회합니다. 전화번호는 E.164 문자열로 저장하며 DELETE는 Soft Delete입니다.
+인증된 사용자는 대시보드에서 고객을 추가·수정·삭제할 수 있습니다. 전화번호는 `010-1234-5678`처럼 입력해도 E.164(`+821012345678`)로 저장됩니다. `customerCode`는 자동 생성되고 DELETE는 Soft Delete입니다.
 
 - `POST /customers`
 - `GET /customers` — page, limit, keyword, status, doNotCall
@@ -77,9 +116,9 @@ CSV 업로드와 캠페인은 포함하지 않습니다.
 
 ## Galaxy ADB 발신
 
-Windows PC에 USB로 연결된 Galaxy에서 고객 번호 1통을 겁니다. Backend는 호스트에서 실행해야 하며, Docker 컨테이너에서는 USB/ADB에 접근하지 못합니다.
+Windows PC에 USB로 연결된 Galaxy에서 고객 번호 1통을 겁니다. Backend는 **Windows에서** 실행해야 합니다. Docker 컨테이너의 backend는 USB/ADB에 접근하지 못합니다.
 
-- `GET /telephony/device`
+- `GET /telephony/device` — ADB_PATH 미설정, adb.exe 없음, ADB_DEVICE_ID 미설정, device 없음, unauthorized, offline, 정상 연결을 구분합니다
 - `POST /telephony/call` `{ "customerId": "..." }`
 
 `.env` 예:

@@ -56,6 +56,7 @@ function createService(
     calls?: Partial<CallRepository>;
     adb?: Partial<AdbGateway>;
     deviceId?: string;
+    adbPath?: string;
   } = {},
 ): {
   service: TelephonyService;
@@ -80,9 +81,15 @@ function createService(
     getById: overrides.getById ?? jest.fn().mockResolvedValue(createCustomer()),
   } as Pick<CustomersService, 'getById'>;
   const config = {
-    get: jest.fn((key: string) =>
-      key === 'ADB_DEVICE_ID' ? (overrides.deviceId ?? DEVICE_ID) : '',
-    ),
+    get: jest.fn((key: string) => {
+      if (key === 'ADB_DEVICE_ID') {
+        return overrides.deviceId ?? DEVICE_ID;
+      }
+      if (key === 'ADB_PATH') {
+        return overrides.adbPath ?? 'C:\\platform-tools\\adb.exe';
+      }
+      return '';
+    }),
   } as unknown as ConfigService;
 
   return {
@@ -109,6 +116,42 @@ describe('TelephonyService', () => {
     });
 
     await expect(service.getDevice()).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('rejects when ADB_PATH is not configured', async () => {
+    const { service } = createService({ adbPath: '' });
+
+    await expect(service.getDevice()).rejects.toMatchObject({
+      message: 'ADB executable is not configured',
+    });
+  });
+
+  it('rejects when ADB_DEVICE_ID is not configured', async () => {
+    const { service } = createService({ deviceId: '' });
+
+    await expect(service.getDevice()).rejects.toMatchObject({
+      message: 'ADB device is not configured',
+    });
+  });
+
+  it('rejects when Galaxy USB debugging is unauthorized', async () => {
+    const { service } = createService({
+      adb: { listDevices: jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'unauthorized' }]) },
+    });
+
+    await expect(service.getDevice()).rejects.toMatchObject({
+      message: 'Galaxy USB debugging is unauthorized',
+    });
+  });
+
+  it('rejects when Galaxy is offline', async () => {
+    const { service } = createService({
+      adb: { listDevices: jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'offline' }]) },
+    });
+
+    await expect(service.getDevice()).rejects.toMatchObject({
+      message: 'Galaxy is offline',
+    });
   });
 
   it('places a call and records STARTED', async () => {
