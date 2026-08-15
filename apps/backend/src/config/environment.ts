@@ -55,6 +55,8 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     PORT: port,
     TRUST_PROXY: parseBoolean(config.TRUST_PROXY ?? false, 'TRUST_PROXY'),
     TRUST_PROXY_HOPS: trustProxyHops,
+    ADB_PATH: optionalString(config.ADB_PATH),
+    ADB_DEVICE_ID: optionalAdbDeviceId(config.ADB_DEVICE_ID),
   };
 }
 
@@ -71,6 +73,33 @@ function parsePositiveInteger(value: unknown, name: string): number {
     throw new Error(`Environment variable ${name} must be a positive integer`);
   }
   return parsed;
+}
+
+function optionalString(value: unknown): string {
+  if (value === undefined || value === null) {
+    return '';
+  }
+  if (typeof value !== 'string') {
+    throw new Error('Environment variable ADB_PATH must be a string');
+  }
+  return value.trim();
+}
+
+function optionalAdbDeviceId(value: unknown): string {
+  if (value === undefined || value === null || value === '') {
+    return '';
+  }
+  if (typeof value !== 'string') {
+    throw new Error('Environment variable ADB_DEVICE_ID must be a string');
+  }
+  const deviceId = value.trim();
+  if (deviceId.length === 0) {
+    return '';
+  }
+  if (!/^[A-Za-z0-9._:-]+$/.test(deviceId)) {
+    throw new Error('Environment variable ADB_DEVICE_ID contains invalid characters');
+  }
+  return deviceId;
 }
 
 function parseBoolean(value: unknown, name: string): boolean {

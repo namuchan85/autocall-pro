@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
         source: '/auth/:path*',
         destination: `${apiOrigin}/auth/:path*`,
       },
+      {
+        source: '/customers',
+        destination: `${apiOrigin}/customers`,
+      },
+      {
+        source: '/customers/:path*',
+        destination: `${apiOrigin}/customers/:path*`,
+      },
+      {
+        source: '/telephony/:path*',
+        destination: `${apiOrigin}/telephony/:path*`,
+      },
     ];
   },
 };

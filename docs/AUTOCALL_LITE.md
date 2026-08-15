@@ -8,7 +8,7 @@ AutoCall Lite는 **개인 1명이 자신의 PC에서 사용하는 간단한 오�
 
 기존 AutoCall Pro 코드베이스를 삭제하거나 새 저장소를 만들지 않는다. 동작하는 기반(Next.js, NestJS, Prisma, PostgreSQL, Docker, Customer CRUD, Auth)을 재사용하고 방향을 Lite로 전환한다.
 
-이번 단계(Lite Level 1)에서는 **실제 전화를 구현하지 않는다.** 구조와 문서만 Lite에 맞춘다.
+이번 단계(Lite Level 2)에서는 USB로 연결된 Galaxy에 ADB로 전화 1통을 건다. 음성·DTMF·SMS·AI는 구현하지 않는다.
 
 ## 2. 핵심 기능
 
@@ -22,7 +22,7 @@ AutoCall Lite는 **개인 1명이 자신의 PC에서 사용하는 간단한 오�
 8. 통화 결과 확인
 9. 위 기능이 안정된 뒤에만 선택적 AI 음성 대화
 
-현재 구현된 핵심은 1번(Customer 저장)과 인증된 API다. 3~8번은 Lite Level 2 이후에서 구현한다.
+현재 구현된 핵심은 1·2번(Customer 저장과 목록 조회)과 3번의 단건 ADB 발신이다. 연속 발신·음성·DTMF·문자(4~8번)는 이후 Level에서 구현한다.
 
 ## 3. 제외 기능
 
@@ -33,7 +33,7 @@ AutoCall Lite는 **개인 1명이 자신의 PC에서 사용하는 간단한 오�
 - Campaign / CSV 대량 업로드
 - 기업용 Audit 로그
 - BullMQ Call Queue
-- Twilio/SIP 등 Telephony Provider 연동 (Level 2)
+- Twilio/SIP 등 클라우드 Telephony Provider
 - 문자 발송 구현 (Level 4)
 - STT / TTS / LLM / AI Voice (Level 5)
 
@@ -47,16 +47,16 @@ apps/
   backend/
     modules/auth     단일 사용자 로그인 (기존 JWT 유지)
     modules/customers
-    modules/calls      예정 — 아직 없음
+    modules/telephony  ADB Galaxy 단건 발신
+    modules/calls      예정 — Call은 Prisma 모델만 존재
     modules/messages   예정 — 아직 없음
-    modules/telephony  예정 — 아직 없음
     modules/settings   예정 — 아직 없음
 
 apps/backend/prisma/ PostgreSQL + Prisma
 docker-compose.yml   postgres, redis, migrate, backend, frontend
 ```
 
-빈 `calls` / `telephony` 모듈은 만들지 않는다. 다음 단계에서 실제 발신이 필요할 때 추가한다.
+빈 `messages` 모듈은 만들지 않는다. 음성·DTMF는 Level 3에서 추가한다.
 
 ## 5. 기본 Call Flow
 
@@ -101,19 +101,34 @@ Lite Level 2 이후의 기본 시나리오다. **DB Model은 아직 생성하지
 
 ## 6. Lite Level 1~5 Roadmap
 
-### Lite Level 1 — 구조 정리 (현재)
+### Lite Level 1 — 구조 정리
 
 기존 프로젝트를 Lite 방향으로 단순화한다. 전화·문자·AI는 넣지 않는다.
 
-### Lite Level 2 — 실제 전화 1통
+### Lite Level 2 — 실제 전화 1통 (현재)
 
-전화 API 또는 SIP Provider를 연결하고, 테스트 번호로 실제 전화 1통을 건다.
+Windows PC에서 USB 연결된 Galaxy를 ADB로 제어해 고객 번호 1통을 발신한다.
 
-준비사항은 이 문서 하단 Next Step과 같다.
+- `GET /telephony/device` — 지정 Galaxy가 `device` 상태인지 확인
+- `POST /telephony/call` — Customer 조회 후 `adb shell am start -a android.intent.action.CALL`
+- Call 기록 status: `REQUESTED` → `STARTED` 또는 `FAILED`
+- provider: `ADB_GALAXY`
+- 실제 응답/부재/통화중 감지는 하지 않는다
+
+환경변수: `ADB_PATH`, `ADB_DEVICE_ID` (값은 Git에 커밋하지 않는다)
+
+준비·수동 검증:
+
+1. `adb devices`에서 Galaxy가 `device`인지 확인한다
+2. `.env`에 `ADB_PATH`, `ADB_DEVICE_ID`를 넣는다
+3. `npm run prisma:migrate:deploy`로 Call 테이블을 적용한다
+4. 테스트용 고객 1명을 저장한다
+5. 대시보드에서 「전화 걸기」를 눌러 Galaxy 발신을 확인한다
+6. CI/단위 테스트에서는 실제 ADB를 실행하지 않는다
 
 ### Lite Level 3 — 음성 안내 + DTMF
 
-연결 후 안내 음성을 재생하고 DTMF를 수신한다.
+연결 후 안내 음성을 재생하고 DTMF를 수신한다. 실제 통화 상태(ANSWERED, NO_ANSWER 등) 추적을 검토한다.
 
 ### Lite Level 4 — 문자·결과·UI
 
@@ -159,3 +174,5 @@ Auth 결정(이번 단계): **A. 기존 Auth 유지**
 - Compose `TRUST_PROXY=false`이면 브라우저 로그인 Rate Limit이 frontend 컨테이너 IP로 묶일 수 있다.
 - 향후 완전한 단일 PC 프로그램으로 바꿀 경우 PostgreSQL → SQLite 전환을 검토할 수 있다. **이번 작업에서는 migration하지 않는다.**
 - 미사용이던 `bullmq`, WebSocket 패키지는 Lite Level 1에서 제거했다. 전화 Queue를 Redis/BullMQ로 다시 넣지 않는다.
+- Docker backend 컨테이너는 호스트 USB/ADB에 접근하지 못한다. 실제 발신은 Windows에서 `npm run dev:backend`로 실행해야 한다.
+- ADB CALL 성공은 다이얼러 실행 성공일 뿐, 상대방 응답 여부와는 다르다.

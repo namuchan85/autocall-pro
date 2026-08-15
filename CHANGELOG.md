@@ -20,6 +20,7 @@
 - 로그인 Redis Rate Limit, dummy bcrypt 비교, Login DTO 복잡도 검증 제거, Auth 통합 테스트
 - 테스트 ConfigModule 격리와 Trusted Proxy 기반 Client IP 식별
 - Level 4 Customer 모델, Soft Delete CRUD, 목록 페이징·검색·필터
+- Lite Level 2 USB Galaxy ADB 단건 발신, Call 기록, 대시보드 「전화 걸기」
 
 ### Fixed
 

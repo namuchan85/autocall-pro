@@ -12,8 +12,8 @@ Backend는 `presentation → application → domain ← infrastructure` 의존�
 
 - `common`: 전역 필터, 로깅, 파이프 등 횡단 관심사
 - `config`: 환경 설정과 검증
-- `modules`: `auth`, `customers`. `calls` / `messages` / `telephony` / `settings`는 다음 단계에서 추가
-- `infrastructure`: Prisma, Redis (로그인 Rate Limit)
+- `modules`: `auth`, `customers`, `telephony`
+- `infrastructure`: Prisma, Redis (로그인 Rate Limit), ADB process gateway
 
 Repository 인터페이스는 domain/application 계층에, Prisma 구현체는 infrastructure 계층에 둔다. DTO는 외부 요청·응답 경계에서만 사용한다.
 
@@ -28,7 +28,7 @@ Lite는 단일 사용자다. 이번 단계에서는 **기존 JWT Auth를 유지*
 
 ## 현재 범위
 
-Swagger, ValidationPipe, 예외 필터, Logger, Prisma PostgreSQL, Redis Health, 관리자 로그인, Customer CRUD가 동작한다. 캠페인, 전화 발신, 문자, AI Voice는 없다.
+Swagger, ValidationPipe, 예외 필터, Logger, Prisma PostgreSQL, Redis Health, 관리자 로그인, Customer CRUD, ADB Galaxy 단건 발신이 동작한다. 음성·DTMF·문자·AI Voice는 없다.
 
 ## 고객 경계
 
@@ -37,6 +37,13 @@ Swagger, ValidationPipe, 예외 필터, Logger, Prisma PostgreSQL, Redis Health,
 - 전화번호는 E.164 문자열로 검증·저장하고 로그에 남기지 않는다
 - Customer `name`은 DTO에서 trim하고, trim 결과가 빈 문자열이면 요청을 거부한다
 - `customerCode` 등 여분 필드는 당장 migration으로 제거하지 않는다
+
+## 전화 경계
+
+- `POST /telephony/call`은 Customer 전화번호를 E.164로 검증한 뒤 ADB `am start ACTION_CALL`을 인자 배열로 실행한다
+- Call 기록은 `REQUESTED` / `STARTED` / `FAILED`만 사용한다. 상대방 응답 여부는 추적하지 않는다
+- 전화번호와 ADB 명령은 로그에 남기지 않는다
+- 실제 발신은 Windows 호스트의 ADB/USB가 필요하다. Docker backend에서는 USB Galaxy에 접근하지 못한다
 
 ## Known Issues / Technical Debt
 

@@ -13,6 +13,8 @@ export const TEST_ENVIRONMENT = {
   TRUST_PROXY_HOPS: '1',
   NODE_ENV: 'test',
   PORT: '3001',
+  ADB_PATH: 'C:\\platform-tools\\adb.exe',
+  ADB_DEVICE_ID: 'TESTDEVICE01',
 } as const;
 
 export function applyTestEnvironment(env: NodeJS.ProcessEnv = process.env): void {

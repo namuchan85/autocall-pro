@@ -60,9 +60,37 @@ model Customer {
   deletedAt    DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
+  calls        Call[]
 
   @@index([status])
   @@index([doNotCall])
   @@index([deletedAt])
   @@map("customers")
+}
+
+enum CallStatus {
+  REQUESTED
+  STARTED
+  FAILED
+}
+
+enum CallProvider {
+  ADB_GALAXY
+}
+
+model Call {
+  id           String       @id @default(uuid()) @db.Uuid
+  customerId   String       @db.Uuid
+  phoneNumber  String
+  status       CallStatus
+  provider     CallProvider @default(ADB_GALAXY)
+  deviceId     String
+  errorMessage String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("calls")
 }

@@ -21,6 +21,8 @@ describe('validateEnvironment', () => {
       LOGIN_RATE_LIMIT_WINDOW_SECONDS: 60,
       TRUST_PROXY: false,
       TRUST_PROXY_HOPS: 1,
+      ADB_PATH: '',
+      ADB_DEVICE_ID: '',
     });
   });
 

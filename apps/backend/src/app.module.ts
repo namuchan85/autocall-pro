@@ -7,6 +7,7 @@ import { RedisModule } from './infrastructure/cache/redis.module';
 import { PrismaModule } from './infrastructure/database/prisma.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CustomersModule } from './modules/customers/customers.module';
+import { TelephonyModule } from './modules/telephony/telephony.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { CustomersModule } from './modules/customers/customers.module';
     HealthModule,
     AuthModule,
     CustomersModule,
+    TelephonyModule,
   ],
 })
 export class AppModule {}
