@@ -35,6 +35,7 @@ export class TelephonyService {
 
   async getDevice(): Promise<TelephonyDeviceStatus> {
     try {
+      this.requireAdbPath();
       const deviceId = this.configuredDeviceId();
       await this.assertDeviceReady(deviceId);
       return { connected: true, deviceId };
@@ -78,6 +79,7 @@ export class TelephonyService {
     }
 
     try {
+      this.requireAdbPath();
       const connectedId = this.configuredDeviceId();
       await this.assertDeviceReady(connectedId);
       const call = await this.calls.create({
@@ -106,6 +108,14 @@ export class TelephonyService {
     } catch (error) {
       throw toHttpException(error);
     }
+  }
+
+  private requireAdbPath(): string {
+    const adbPath = this.config.get<string>('ADB_PATH')?.trim() ?? '';
+    if (!adbPath) {
+      throw new TelephonyConfigError('ADB executable is not configured');
+    }
+    return adbPath;
   }
 
   private configuredDeviceId(): string {

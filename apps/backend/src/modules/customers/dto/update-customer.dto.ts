@@ -10,7 +10,11 @@ import {
   MaxLength,
 } from 'class-validator';
 import { CUSTOMER_STATUSES, type CustomerStatus } from '../domain/customer.types';
-import { E164_PHONE_MESSAGE, E164_PHONE_PATTERN } from '../validation/phone-number';
+import {
+  E164_PHONE_MESSAGE,
+  E164_PHONE_PATTERN,
+  normalizePhoneNumber,
+} from '../validation/phone-number';
 import { trimIfString } from '../validation/trim-string';
 
 export class UpdateCustomerDto {
@@ -30,7 +34,10 @@ export class UpdateCustomerDto {
   @MaxLength(200)
   name?: string;
 
-  @ApiPropertyOptional({ example: '+821012345678' })
+  @ApiPropertyOptional({ example: '010-1234-5678' })
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? normalizePhoneNumber(value) : value,
+  )
   @IsOptional()
   @IsString()
   @Matches(E164_PHONE_PATTERN, { message: E164_PHONE_MESSAGE })

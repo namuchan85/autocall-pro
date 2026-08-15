@@ -40,13 +40,17 @@ class MemoryCustomerRepository implements CustomerRepository {
   private readonly records: CustomerRecord[] = [];
 
   create(input: NewCustomer): Promise<CustomerRecord> {
-    if (this.records.some((item) => item.customerCode === input.customerCode)) {
+    const customerCode = input.customerCode;
+    if (!customerCode) {
+      return Promise.reject(new Error('customerCode is required'));
+    }
+    if (this.records.some((item) => item.customerCode === customerCode)) {
       return Promise.reject(new CustomerCodeConflictError());
     }
     const now = new Date();
     const record: CustomerRecord = {
       id: `11111111-1111-4111-8111-${String(this.records.length + 1).padStart(12, '0')}`,
-      customerCode: input.customerCode,
+      customerCode,
       name: input.name,
       phoneNumber: input.phoneNumber,
       company: input.company ?? null,
@@ -296,7 +300,7 @@ describe('Customers HTTP integration', () => {
     const invalidPhone = await request(httpServer())
       .post('/customers')
       .set('Authorization', authorization)
-      .send(customerBody({ phoneNumber: '01012345678' }));
+      .send(customerBody({ phoneNumber: 'not-a-phone' }));
     expect(invalidPhone.status).toBe(400);
 
     const first = await request(httpServer())
@@ -385,6 +389,67 @@ describe('Customers HTTP integration', () => {
       .send(customerBody());
     expect(viewer.status).toBe(403);
   });
+
+  it('creates a customer without customerCode and normalizes a Korean mobile number', async () => {
+    await createApp();
+    const authorization = await bearer(ADMIN);
+
+    const created = await request(httpServer())
+      .post('/customers')
+      .set('Authorization', authorization)
+      .send({ name: 'Alice', phoneNumber: '010-1234-5678', memo: 'from dashboard' });
+    expect(created.status).toBe(201);
+    expect(readName(created.body)).toBe('Alice');
+    expect(readPhone(created.body)).toBe('+821012345678');
+    expect(readCustomerCode(created.body)).toMatch(/^CUST-[A-Z0-9]{12}$/);
+    expect(readStatus(created.body)).toBe('ACTIVE');
+
+    const listed = await request(httpServer())
+      .get('/customers')
+      .set('Authorization', authorization);
+    expect(listed.status).toBe(200);
+    expect(readTotal(listed.body)).toBe(1);
+  });
+
+  it('updates a customer name, phone, and memo', async () => {
+    await createApp();
+    const authorization = await bearer(ADMIN);
+    const created = await request(httpServer())
+      .post('/customers')
+      .set('Authorization', authorization)
+      .send({ name: 'Alice', phoneNumber: '01012345678' });
+    expect(created.status).toBe(201);
+    const id = readId(created.body);
+
+    const patched = await request(httpServer())
+      .patch(`/customers/${id}`)
+      .set('Authorization', authorization)
+      .send({ name: 'Bob', phoneNumber: '010-8765-4321', memo: 'updated' });
+    expect(patched.status).toBe(200);
+    expect(readName(patched.body)).toBe('Bob');
+    expect(readPhone(patched.body)).toBe('+821087654321');
+    expect(readMemo(patched.body)).toBe('updated');
+  });
+
+  it('soft deletes a customer and refreshes the list', async () => {
+    await createApp();
+    const authorization = await bearer(ADMIN);
+    const created = await request(httpServer())
+      .post('/customers')
+      .set('Authorization', authorization)
+      .send({ name: 'Alice', phoneNumber: '01012345678' });
+    const id = readId(created.body);
+
+    const removed = await request(httpServer())
+      .delete(`/customers/${id}`)
+      .set('Authorization', authorization);
+    expect(removed.status).toBe(200);
+
+    const listed = await request(httpServer())
+      .get('/customers')
+      .set('Authorization', authorization);
+    expect(readTotal(listed.body)).toBe(0);
+  });
 });
 
 function readId(body: unknown): string {
@@ -423,4 +488,49 @@ function readItems(body: unknown): unknown[] {
     return body.items;
   }
   throw new Error('Unexpected customer list response');
+}
+
+function readPhone(body: unknown): string {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'phoneNumber' in body &&
+    typeof body.phoneNumber === 'string'
+  ) {
+    return body.phoneNumber;
+  }
+  throw new Error('Unexpected customer response');
+}
+
+function readCustomerCode(body: unknown): string {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'customerCode' in body &&
+    typeof body.customerCode === 'string'
+  ) {
+    return body.customerCode;
+  }
+  throw new Error('Unexpected customer response');
+}
+
+function readStatus(body: unknown): string {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'status' in body &&
+    typeof body.status === 'string'
+  ) {
+    return body.status;
+  }
+  throw new Error('Unexpected customer response');
+}
+
+function readMemo(body: unknown): string | null {
+  if (typeof body === 'object' && body !== null && 'memo' in body) {
+    if (body.memo === null || typeof body.memo === 'string') {
+      return body.memo;
+    }
+  }
+  throw new Error('Unexpected customer response');
 }

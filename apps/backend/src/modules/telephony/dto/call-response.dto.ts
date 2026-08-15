@@ -11,7 +11,7 @@ export class TelephonyDeviceResponseDto {
   @ApiProperty({ example: true })
   connected!: true;
 
-  @ApiProperty({ example: 'R3CR20HLMCV' })
+  @ApiProperty({ example: 'TESTDEVICE01' })
   deviceId!: string;
 }
 
