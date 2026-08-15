@@ -264,6 +264,50 @@ describe('Telephony HTTP integration', () => {
     expect(response.status).toBe(503);
     expect(calls.records.map((item) => item.status)).toEqual(['FAILED']);
   });
+
+  it('places a call for an ACTIVE customer who is not do-not-call', async () => {
+    await createApp([sampleCustomer({ status: 'ACTIVE', doNotCall: false })]);
+    const response = await request(httpServer())
+      .post('/telephony/call')
+      .set('Authorization', await bearer())
+      .send({ customerId: sampleCustomer().id });
+    expect(response.status).toBe(201);
+    expect(startCall).toHaveBeenCalledWith(DEVICE_ID, '+821012345678');
+    expect(calls.records.map((item) => item.status)).toEqual(['STARTED']);
+  });
+
+  it('rejects a do-not-call customer without ADB or a Call record', async () => {
+    await createApp([sampleCustomer({ doNotCall: true })]);
+    const response = await request(httpServer())
+      .post('/telephony/call')
+      .set('Authorization', await bearer())
+      .send({ customerId: sampleCustomer().id });
+    expect(response.status).toBe(403);
+    expect(startCall).not.toHaveBeenCalled();
+    expect(calls.records).toHaveLength(0);
+  });
+
+  it('rejects an INACTIVE customer without ADB or a Call record', async () => {
+    await createApp([sampleCustomer({ status: 'INACTIVE' })]);
+    const response = await request(httpServer())
+      .post('/telephony/call')
+      .set('Authorization', await bearer())
+      .send({ customerId: sampleCustomer().id });
+    expect(response.status).toBe(403);
+    expect(startCall).not.toHaveBeenCalled();
+    expect(calls.records).toHaveLength(0);
+  });
+
+  it('rejects a BLOCKED customer without ADB or a Call record', async () => {
+    await createApp([sampleCustomer({ status: 'BLOCKED' })]);
+    const response = await request(httpServer())
+      .post('/telephony/call')
+      .set('Authorization', await bearer())
+      .send({ customerId: sampleCustomer().id });
+    expect(response.status).toBe(403);
+    expect(startCall).not.toHaveBeenCalled();
+    expect(calls.records).toHaveLength(0);
+  });
 });
 
 function readStatus(body: unknown): string {

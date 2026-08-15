@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -20,6 +21,7 @@ import {
 } from './domain/telephony.errors';
 import type { CallRecord, TelephonyDeviceStatus } from './domain/telephony.types';
 import { isSafeAdbDeviceId } from './validation/adb-device-id';
+import { callEligibilityMessage } from './validation/call-eligibility';
 import { sanitizeErrorMessage } from './validation/sanitize-error-message';
 
 @Injectable()
@@ -43,6 +45,11 @@ export class TelephonyService {
 
   async placeCall(customerId: string): Promise<CallRecord> {
     const customer = await this.customers.getById(customerId);
+    const eligibilityError = callEligibilityMessage(customer);
+    if (eligibilityError) {
+      throw new ForbiddenException(eligibilityError);
+    }
+
     const phoneNumber = customer.phoneNumber.trim();
     const deviceId = this.config.get<string>('ADB_DEVICE_ID')?.trim() || 'unconfigured';
 
@@ -70,30 +77,33 @@ export class TelephonyService {
       throw new BadRequestException(E164_PHONE_MESSAGE);
     }
 
-    const call = await this.calls.create({
-      customerId: customer.id,
-      phoneNumber,
-      status: 'REQUESTED',
-      provider: 'ADB_GALAXY',
-      deviceId,
-      errorMessage: null,
-    });
-
     try {
       const connectedId = this.configuredDeviceId();
       await this.assertDeviceReady(connectedId);
-      await this.adb.startCall(connectedId, phoneNumber);
-      const started = await this.calls.updateStatus(call.id, {
-        status: 'STARTED',
+      const call = await this.calls.create({
+        customerId: customer.id,
+        phoneNumber,
+        status: 'REQUESTED',
+        provider: 'ADB_GALAXY',
+        deviceId: connectedId,
         errorMessage: null,
       });
-      if (!started) {
-        throw new NotFoundException('Call record was not found');
+      try {
+        await this.adb.startCall(connectedId, phoneNumber);
+        const started = await this.calls.updateStatus(call.id, {
+          status: 'STARTED',
+          errorMessage: null,
+        });
+        if (!started) {
+          throw new NotFoundException('Call record was not found');
+        }
+        return started;
+      } catch (error) {
+        const message = publicErrorMessage(error);
+        await this.calls.updateStatus(call.id, { status: 'FAILED', errorMessage: message });
+        throw toHttpException(error);
       }
-      return started;
     } catch (error) {
-      const message = publicErrorMessage(error);
-      await this.calls.updateStatus(call.id, { status: 'FAILED', errorMessage: message });
       throw toHttpException(error);
     }
   }
@@ -137,6 +147,7 @@ function publicErrorMessage(error: unknown): string {
 function toHttpException(error: unknown): Error {
   if (
     error instanceof BadRequestException ||
+    error instanceof ForbiddenException ||
     error instanceof NotFoundException ||
     error instanceof ServiceUnavailableException
   ) {

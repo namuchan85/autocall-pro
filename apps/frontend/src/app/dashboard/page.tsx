@@ -9,10 +9,28 @@ interface CustomerItem {
   id: string;
   name: string;
   phoneNumber: string;
+  status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
+  doNotCall: boolean;
 }
 
 interface CustomerListResponse {
   items: CustomerItem[];
+}
+
+function callDisabledReason(customer: CustomerItem): string | null {
+  if (customer.doNotCall) {
+    return '수신거부 고객 발신 불가';
+  }
+  if (customer.status === 'INACTIVE') {
+    return '비활성 고객 발신 불가';
+  }
+  if (customer.status === 'BLOCKED') {
+    return '차단 고객 발신 불가';
+  }
+  if (customer.status !== 'ACTIVE') {
+    return '발신 불가';
+  }
+  return null;
 }
 
 export default function DashboardPage() {
@@ -112,26 +130,34 @@ export default function DashboardPage() {
           {customers.length === 0 ? (
             <li className="px-4 py-6 text-slate-400">저장된 고객이 없습니다.</li>
           ) : (
-            customers.map((customer) => (
-              <li key={customer.id} className="flex items-center justify-between gap-4 px-4 py-4">
-                <div>
-                  <p className="font-medium">{customer.name}</p>
-                  <p className="text-sm text-slate-400">{customer.phoneNumber}</p>
-                </div>
-                {canCall ? (
-                  <button
-                    className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
-                    type="button"
-                    disabled={callingId !== null}
-                    onClick={() => {
-                      void placeCall(customer);
-                    }}
-                  >
-                    {callingId === customer.id ? '발신 중…' : '전화 걸기'}
-                  </button>
-                ) : null}
-              </li>
-            ))
+            customers.map((customer) => {
+              const disabledReason = callDisabledReason(customer);
+              return (
+                <li key={customer.id} className="flex items-center justify-between gap-4 px-4 py-4">
+                  <div>
+                    <p className="font-medium">{customer.name}</p>
+                    <p className="text-sm text-slate-400">{customer.phoneNumber}</p>
+                  </div>
+                  {canCall ? (
+                    <div className="text-right">
+                      <button
+                        className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                        type="button"
+                        disabled={callingId !== null || disabledReason !== null}
+                        onClick={() => {
+                          void placeCall(customer);
+                        }}
+                      >
+                        {callingId === customer.id ? '발신 중…' : '전화 걸기'}
+                      </button>
+                      {disabledReason ? (
+                        <p className="mt-1 text-xs text-slate-500">{disabledReason}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })
           )}
         </ul>
       </section>

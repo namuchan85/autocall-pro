@@ -60,7 +60,7 @@ docker-compose.yml   postgres, redis, migrate, backend, frontend
 
 ## 5. 기본 Call Flow
 
-Lite Level 2 이후의 기본 시나리오다. **DB Model은 아직 생성하지 않는다.**
+Lite Level 2 이후의 기본 시나리오다.
 
 ```text
 전화번호 선택
@@ -81,23 +81,26 @@ Lite Level 2 이후의 기본 시나리오다. **DB Model은 아직 생성하지
 부재 → NO_ANSWER
 ```
 
-### 향후 Call 개념 (문서만)
+### Call 모델 (Lite Level 2에서 구현됨)
 
-| 필드           | 설명                  |
-| -------------- | --------------------- |
-| id             | UUID                  |
-| customerId     | 고객                  |
-| phoneNumber    | 발신 시점 번호 스냅샷 |
-| status         | 아래 enum             |
-| startedAt      | 발신 시작             |
-| answeredAt     | 응답                  |
-| endedAt        | 종료                  |
-| dtmfResult     | DTMF 선택             |
-| messageSent    | 문자 발송 여부        |
-| providerCallId | 전화 사업자 통화 ID   |
-| createdAt      | 생성                  |
+최소 Call 모델은 Lite Level 2에서 이미 구현했다.
 
-예상 status: `PENDING`, `CALLING`, `ANSWERED`, `NO_ANSWER`, `BUSY`, `FAILED`, `COMPLETED`
+현재 status:
+
+- `REQUESTED` — 발신 요청을 기록함
+- `STARTED` — ADB CALL 명령 실행 성공 (다이얼러 시작)
+- `FAILED` — 발신 요청 실패
+
+향후 실제 통화 결과 status는 이후 Level에서 검토한다.
+
+- `ANSWERED`
+- `NO_ANSWER`
+- `BUSY`
+- `COMPLETED`
+
+`startedAt`, `answeredAt`, `endedAt`, `dtmfResult`, `messageSent` 등은 아직 없다.
+
+발신은 `status === ACTIVE` 이고 `doNotCall === false` 인 Customer만 허용한다. INACTIVE, BLOCKED, 수신거부 고객은 Call 기록 없이 거부한다.
 
 ## 6. Lite Level 1~5 Roadmap
 
@@ -110,7 +113,7 @@ Lite Level 2 이후의 기본 시나리오다. **DB Model은 아직 생성하지
 Windows PC에서 USB 연결된 Galaxy를 ADB로 제어해 고객 번호 1통을 발신한다.
 
 - `GET /telephony/device` — 지정 Galaxy가 `device` 상태인지 확인
-- `POST /telephony/call` — Customer 조회 후 `adb shell am start -a android.intent.action.CALL`
+- `POST /telephony/call` — ACTIVE이고 수신거부가 아닌 Customer만 ADB CALL
 - Call 기록 status: `REQUESTED` → `STARTED` 또는 `FAILED`
 - provider: `ADB_GALAXY`
 - 실제 응답/부재/통화중 감지는 하지 않는다

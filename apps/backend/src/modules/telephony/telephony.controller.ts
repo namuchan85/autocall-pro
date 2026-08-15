@@ -2,6 +2,7 @@ import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiCreatedResponse,
+  ApiForbiddenResponse,
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiServiceUnavailableResponse,
@@ -36,6 +37,7 @@ export class TelephonyController {
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
   @ApiCreatedResponse({ type: CallResponseDto })
   @ApiNotFoundResponse({ description: 'Customer not found' })
+  @ApiForbiddenResponse({ description: 'Customer is not eligible to call' })
   @ApiServiceUnavailableResponse({ description: 'Galaxy is not ready for ADB calling' })
   async placeCall(@Body() input: PlaceCallDto): Promise<CallResponseDto> {
     return CallResponseDto.fromRecord(await this.telephony.placeCall(input.customerId));
