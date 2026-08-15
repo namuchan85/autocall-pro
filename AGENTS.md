@@ -10,3 +10,7 @@
 8. 환경변수, 전화번호, 녹취, API 키 등 비밀·개인정보를 코드나 로그에 남기지 않는다.
 9. 변경에는 적절한 테스트를 추가하고 lint, test, build 결과를 확인한다.
 10. 의존성 추가 전 기존 기능으로 해결 가능한지 확인하고 추가 이유를 기록한다.
+11. PR을 만든 뒤에는 Codex 리뷰용 PR 링크를 답변 맨 마지막에만 둔다. 본문 중간에 반복하지 않는다.
+12. 현재 목표는 AutoCall Lite다. Campaign, 상담원, Multi Tenant, 기업용 SaaS 기능을 추가하지 않는다.
+13. Telephony, SMS, STT, TTS, LLM, BullMQ Call Queue는 해당 Lite Level이 오기 전에 구현하지 않는다. Lite Level 2는 ADB 단건 발신만 허용한다.
+14. 변경 전 `docs/AUTOCALL_LITE.md`의 현재 단계 범위를 확인한다.

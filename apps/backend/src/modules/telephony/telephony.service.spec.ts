@@ -1,0 +1,279 @@
+import { ConfigService } from '@nestjs/config';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { CustomersService } from '../customers/customers.service';
+import type { CustomerRecord } from '../customers/domain/customer.types';
+import type { AdbGateway } from './domain/adb.gateway';
+import type { CallRepository } from './domain/call.repository';
+import { AdbCommandFailedError, AdbExecutableMissingError } from './domain/telephony.errors';
+import type { CallRecord } from './domain/telephony.types';
+import { TelephonyService } from './telephony.service';
+
+const DEVICE_ID = 'TESTDEVICE01';
+const CUSTOMER_ID = '11111111-1111-4111-8111-111111111111';
+
+function createCustomer(overrides: Partial<CustomerRecord> = {}): CustomerRecord {
+  const now = new Date('2026-08-15T00:00:00.000Z');
+  return {
+    id: CUSTOMER_ID,
+    customerCode: 'CUST-001',
+    name: 'Hong Gildong',
+    phoneNumber: '+821012345678',
+    company: null,
+    memo: null,
+    status: 'ACTIVE',
+    doNotCall: false,
+    deletedAt: null,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
+function createCall(overrides: Partial<CallRecord> = {}): CallRecord {
+  const now = new Date('2026-08-15T00:00:00.000Z');
+  return {
+    id: '22222222-2222-4222-8222-222222222222',
+    customerId: CUSTOMER_ID,
+    phoneNumber: '+821012345678',
+    status: 'REQUESTED',
+    provider: 'ADB_GALAXY',
+    deviceId: DEVICE_ID,
+    errorMessage: null,
+    createdAt: now,
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
+function createService(
+  overrides: {
+    getById?: CustomersService['getById'];
+    calls?: Partial<CallRepository>;
+    adb?: Partial<AdbGateway>;
+    deviceId?: string;
+    adbPath?: string;
+  } = {},
+): {
+  service: TelephonyService;
+  createCallRecord: jest.Mock;
+  updateStatus: jest.Mock;
+  startCall: jest.Mock;
+} {
+  const createCallRecord = overrides.calls?.create ?? jest.fn();
+  const updateStatus = overrides.calls?.updateStatus ?? jest.fn();
+  const startCall = overrides.adb?.startCall ?? jest.fn().mockResolvedValue(undefined);
+  const listDevices =
+    overrides.adb?.listDevices ?? jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'device' }]);
+  const calls = {
+    create: createCallRecord,
+    updateStatus,
+  } as jest.Mocked<CallRepository>;
+  const adb = {
+    listDevices,
+    startCall,
+  } as jest.Mocked<AdbGateway>;
+  const customers = {
+    getById: overrides.getById ?? jest.fn().mockResolvedValue(createCustomer()),
+  } as Pick<CustomersService, 'getById'>;
+  const config = {
+    get: jest.fn((key: string) => {
+      if (key === 'ADB_DEVICE_ID') {
+        return overrides.deviceId ?? DEVICE_ID;
+      }
+      if (key === 'ADB_PATH') {
+        return overrides.adbPath ?? 'C:\\platform-tools\\adb.exe';
+      }
+      return '';
+    }),
+  } as unknown as ConfigService;
+
+  return {
+    service: new TelephonyService(config, customers as CustomersService, calls, adb),
+    createCallRecord,
+    updateStatus,
+    startCall,
+  };
+}
+
+describe('TelephonyService', () => {
+  it('returns the connected device', async () => {
+    const { service } = createService();
+
+    await expect(service.getDevice()).resolves.toEqual({
+      connected: true,
+      deviceId: DEVICE_ID,
+    });
+  });
+
+  it('rejects when no device is attached', async () => {
+    const { service } = createService({
+      adb: { listDevices: jest.fn().mockResolvedValue([]) },
+    });
+
+    await expect(service.getDevice()).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('rejects when ADB_PATH is not configured', async () => {
+    const { service } = createService({ adbPath: '' });
+
+    await expect(service.getDevice()).rejects.toMatchObject({
+      message: 'ADB executable is not configured',
+    });
+  });
+
+  it('rejects when ADB_DEVICE_ID is not configured', async () => {
+    const { service } = createService({ deviceId: '' });
+
+    await expect(service.getDevice()).rejects.toMatchObject({
+      message: 'ADB device is not configured',
+    });
+  });
+
+  it('rejects when Galaxy USB debugging is unauthorized', async () => {
+    const { service } = createService({
+      adb: { listDevices: jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'unauthorized' }]) },
+    });
+
+    await expect(service.getDevice()).rejects.toMatchObject({
+      message: 'Galaxy USB debugging is unauthorized',
+    });
+  });
+
+  it('rejects when Galaxy is offline', async () => {
+    const { service } = createService({
+      adb: { listDevices: jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'offline' }]) },
+    });
+
+    await expect(service.getDevice()).rejects.toMatchObject({
+      message: 'Galaxy is offline',
+    });
+  });
+
+  it('places a call and records STARTED', async () => {
+    const requested = createCall();
+    const started = createCall({ status: 'STARTED' });
+    const { service, updateStatus, startCall } = createService({
+      calls: {
+        create: jest.fn().mockResolvedValue(requested),
+        updateStatus: jest.fn().mockResolvedValue(started),
+      },
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).resolves.toEqual(started);
+    expect(startCall).toHaveBeenCalledWith(DEVICE_ID, '+821012345678');
+    expect(updateStatus).toHaveBeenCalledWith(requested.id, {
+      status: 'STARTED',
+      errorMessage: null,
+    });
+  });
+
+  it('rejects a missing customer without creating a call', async () => {
+    const { service, createCallRecord } = createService({
+      getById: jest.fn().mockRejectedValue(new NotFoundException('Customer not found')),
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).rejects.toBeInstanceOf(NotFoundException);
+    expect(createCallRecord).not.toHaveBeenCalled();
+  });
+
+  it('allows a call when the customer is ACTIVE and not do-not-call', async () => {
+    const requested = createCall();
+    const started = createCall({ status: 'STARTED' });
+    const { service, startCall } = createService({
+      getById: jest.fn().mockResolvedValue(createCustomer({ status: 'ACTIVE', doNotCall: false })),
+      calls: {
+        create: jest.fn().mockResolvedValue(requested),
+        updateStatus: jest.fn().mockResolvedValue(started),
+      },
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).resolves.toEqual(started);
+    expect(startCall).toHaveBeenCalledWith(DEVICE_ID, '+821012345678');
+  });
+
+  it('rejects a do-not-call customer without ADB or a Call record', async () => {
+    const { service, createCallRecord, startCall } = createService({
+      getById: jest.fn().mockResolvedValue(createCustomer({ doNotCall: true })),
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(createCallRecord).not.toHaveBeenCalled();
+    expect(startCall).not.toHaveBeenCalled();
+  });
+
+  it('rejects an INACTIVE customer without ADB or a Call record', async () => {
+    const { service, createCallRecord, startCall } = createService({
+      getById: jest.fn().mockResolvedValue(createCustomer({ status: 'INACTIVE' })),
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(createCallRecord).not.toHaveBeenCalled();
+    expect(startCall).not.toHaveBeenCalled();
+  });
+
+  it('rejects a BLOCKED customer without ADB or a Call record', async () => {
+    const { service, createCallRecord, startCall } = createService({
+      getById: jest.fn().mockResolvedValue(createCustomer({ status: 'BLOCKED' })),
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).rejects.toBeInstanceOf(ForbiddenException);
+    expect(createCallRecord).not.toHaveBeenCalled();
+    expect(startCall).not.toHaveBeenCalled();
+  });
+
+  it('records FAILED for an invalid phone number', async () => {
+    const failed = createCall({ status: 'FAILED', phoneNumber: '01012345678' });
+    const { service, createCallRecord, startCall } = createService({
+      getById: jest.fn().mockResolvedValue(createCustomer({ phoneNumber: '01012345678' })),
+      calls: { create: jest.fn().mockResolvedValue(failed) },
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).rejects.toBeInstanceOf(BadRequestException);
+    expect(createCallRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'FAILED', errorMessage: 'Invalid phone number' }),
+    );
+    expect(startCall).not.toHaveBeenCalled();
+  });
+
+  it('records FAILED when ADB execution fails', async () => {
+    const requested = createCall();
+    const failed = createCall({ status: 'FAILED', errorMessage: 'ADB call command failed' });
+    const { service, updateStatus } = createService({
+      calls: {
+        create: jest.fn().mockResolvedValue(requested),
+        updateStatus: jest.fn().mockResolvedValue(failed),
+      },
+      adb: {
+        listDevices: jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'device' }]),
+        startCall: jest.fn().mockRejectedValue(new AdbCommandFailedError()),
+      },
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(updateStatus).toHaveBeenCalledWith(requested.id, {
+      status: 'FAILED',
+      errorMessage: 'ADB call command failed',
+    });
+  });
+
+  it('rejects without a Call record when the ADB executable is missing', async () => {
+    const { service, createCallRecord, startCall } = createService({
+      adb: {
+        listDevices: jest.fn().mockRejectedValue(new AdbExecutableMissingError()),
+      },
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).rejects.toBeInstanceOf(
+      ServiceUnavailableException,
+    );
+    expect(createCallRecord).not.toHaveBeenCalled();
+    expect(startCall).not.toHaveBeenCalled();
+  });
+});

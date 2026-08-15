@@ -31,4 +31,26 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async isHealthy(): Promise<boolean> {
     return (await this.client.ping()) === 'PONG';
   }
+
+  async incrementWithTtl(key: string, ttlSeconds: number): Promise<number> {
+    const result = await this.client.eval(
+      `local current = redis.call('INCR', KEYS[1])
+       if current == 1 then
+         redis.call('EXPIRE', KEYS[1], ARGV[1])
+       end
+       return current`,
+      1,
+      key,
+      ttlSeconds,
+    );
+    if (typeof result !== 'number') {
+      throw new Error('Unexpected Redis increment result');
+    }
+    return result;
+  }
+
+  async getTtlSeconds(key: string): Promise<number> {
+    const ttl = await this.client.ttl(key);
+    return ttl > 0 ? ttl : 0;
+  }
 }

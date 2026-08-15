@@ -9,7 +9,6 @@ coverage/
 !.env.example
 
 apps/backend/src/generated/
-apps/backend/prisma/migrations/
 
 *.log
 .DS_Store

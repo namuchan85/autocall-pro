@@ -8,4 +8,89 @@ datasource db {
   provider = "postgresql"
 }
 
-// Level 2 intentionally contains no data models or migrations.
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  VIEWER
+}
+
+model User {
+  id            String         @id @default(uuid()) @db.Uuid
+  email         String         @unique
+  password      String
+  name          String
+  role          Role           @default(VIEWER)
+  isActive      Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @db.Uuid
+  userId    String   @db.Uuid
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+model Customer {
+  id           String         @id @default(uuid()) @db.Uuid
+  customerCode String         @unique
+  name         String
+  phoneNumber  String
+  company      String?
+  memo         String?
+  status       CustomerStatus @default(ACTIVE)
+  doNotCall    Boolean        @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  calls        Call[]
+
+  @@index([status])
+  @@index([doNotCall])
+  @@index([deletedAt])
+  @@map("customers")
+}
+
+enum CallStatus {
+  REQUESTED
+  STARTED
+  FAILED
+}
+
+enum CallProvider {
+  ADB_GALAXY
+}
+
+model Call {
+  id           String       @id @default(uuid()) @db.Uuid
+  customerId   String       @db.Uuid
+  phoneNumber  String
+  status       CallStatus
+  provider     CallProvider @default(ADB_GALAXY)
+  deviceId     String
+  errorMessage String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("calls")
+}

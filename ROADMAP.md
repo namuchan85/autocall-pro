@@ -1,24 +1,29 @@
 # Roadmap
 
-## Level 1 — Foundation
+상세 방향은 `docs/AUTOCALL_LITE.md`를 따른다.
 
-- 모노레포, 앱 기본 구조, 품질 도구, Docker, CI, 문서
+## Lite Level 1 — 구조 정리
 
-## Level 2 — Project Skeleton
+- 기업용 SaaS 방향에서 개인용 AutoCall Lite로 전환
+- 기존 Auth·Customer·Docker·테스트를 유지
 
-- PostgreSQL·Redis 실제 연결과 통합 Health Check
-- Frontend·Backend 컨테이너 Health Check와 전용 Docker network
-- `/swagger`, `/health`, 환경변수 검증
+## Lite Level 2 — 실제 전화 1통 (현재)
 
-## Level 3 — Core Platform
+- USB Galaxy + ADB로 고객 번호 1통 발신
+- Call 기록 (`REQUESTED` / `STARTED` / `FAILED`)
+- 대시보드 고객 목록과 「전화 걸기」
 
-- 요구사항 승인 후 인증·권한, 고객 도메인, 캠페인 도메인의 최소 골격
-- 개인정보 동의·수신거부·감사 추적 정책을 코드보다 먼저 확정
-- Prisma 최초 모델과 migration 도입
+## Lite Level 3 — 음성 안내 + DTMF
 
-## 이후 단계
+- 연결 후 안내 음성 재생
+- DTMF 키 수신
 
-- 비동기 작업과 실시간 상태
-- 통신 사업자 연동
-- 운영 관측성, 보안 강화, 부하·복구 테스트
-- 별도 승인 후 STT/TTS/LLM 기능 검토
+## Lite Level 4 — 문자·결과·UI
+
+- 문자 발송
+- 통화 결과 저장·조회
+- 발신·결과·설정 화면 보강
+
+## Lite Level 5 — 선택적 AI Voice
+
+- 1~4가 안정된 뒤에만 STT / LLM / TTS 검토
