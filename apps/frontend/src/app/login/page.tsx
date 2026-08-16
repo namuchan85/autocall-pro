@@ -40,6 +40,7 @@ export default function LoginPage() {
               className="w-full rounded-lg border border-slate-700 bg-slate-950 px-4 py-3 outline-none focus:border-cyan-400"
               name="email"
               type="email"
+              defaultValue="admin@autocall.local"
               autoComplete="username"
               required
             />

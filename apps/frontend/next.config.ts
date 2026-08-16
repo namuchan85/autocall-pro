@@ -1,8 +1,9 @@
 import type { NextConfig } from 'next';
 
-const apiOrigin = process.env.API_INTERNAL_URL ?? 'http://localhost:3001';
+const apiOrigin = process.env.API_INTERNAL_URL ?? 'http://127.0.0.1:3001';
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
   async rewrites() {
     return [
       {
@@ -20,6 +21,14 @@ const nextConfig: NextConfig = {
       {
         source: '/telephony/:path*',
         destination: `${apiOrigin}/telephony/:path*`,
+      },
+      {
+        source: '/settings',
+        destination: `${apiOrigin}/settings`,
+      },
+      {
+        source: '/settings/:path*',
+        destination: `${apiOrigin}/settings/:path*`,
       },
     ];
   },
