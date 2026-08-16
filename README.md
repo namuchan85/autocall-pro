@@ -18,8 +18,9 @@
 
 로그인:
 
+- 첫 실행이면 관리자 비밀번호를 직접 설정합니다. 비밀번호는 bcrypt hash로만 SQLite에 저장됩니다.
 - Email: `admin@autocall.local`
-- Password: 처음 실행 시 `%APPDATA%\AutoCall Lite\secrets.json`의 `adminPassword`
+- 이후에는 설정한 비밀번호로 로그인합니다.
 
 ## 개발자 실행
 
@@ -56,8 +57,8 @@ npm run dist:win
 
 단일 로컬 사용자용으로 기존 JWT 로그인을 유지합니다.
 
-- Seed email: `admin@autocall.local`
 - Login: `POST /auth/login`
+- First-run setup: `GET /auth/setup-status`, `POST /auth/setup`
 - Refresh: `POST /auth/refresh`
 - Logout: `POST /auth/logout`
 - Current user: `GET /auth/me`
