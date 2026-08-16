@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
+import { Role } from '../../../generated/prisma/enums';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
-import type { AuthRepository, NewRefreshToken } from '../domain/auth.repository';
+import type { AuthRepository, NewLocalAdmin, NewRefreshToken } from '../domain/auth.repository';
 import type { AuthUserRecord, AuthenticatedUser, StoredRefreshToken } from '../domain/auth.types';
 
 const USER_SELECT = {
@@ -29,6 +30,18 @@ export class PrismaAuthRepository implements AuthRepository {
     return this.prisma.user.findFirst({
       where: { id, isActive: true },
       select: USER_SELECT,
+    });
+  }
+
+  async createLocalAdmin(input: NewLocalAdmin): Promise<void> {
+    await this.prisma.user.create({
+      data: {
+        email: input.email,
+        password: input.passwordHash,
+        name: input.name,
+        role: Role.SUPER_ADMIN,
+        isActive: true,
+      },
     });
   }
 

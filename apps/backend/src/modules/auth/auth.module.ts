@@ -11,7 +11,6 @@ import { LoginRateLimitGuard } from './guards/login-rate-limit.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PrismaAuthRepository } from './infrastructure/prisma-auth.repository';
 import { MemoryLoginRateLimiter } from './infrastructure/memory-login-rate-limiter';
-import { LocalAdminBootstrap } from './infrastructure/local-admin-bootstrap';
 
 @Module({
   imports: [PassportModule.register({ defaultStrategy: 'jwt' }), JwtModule.register({})],
@@ -23,7 +22,6 @@ import { LocalAdminBootstrap } from './infrastructure/local-admin-bootstrap';
     LoginRateLimitGuard,
     RolesGuard,
     PrismaAuthRepository,
-    LocalAdminBootstrap,
     MemoryLoginRateLimiter,
     {
       provide: AUTH_REPOSITORY,
