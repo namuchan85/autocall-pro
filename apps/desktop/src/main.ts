@@ -83,9 +83,10 @@ async function bootstrap(): Promise<void> {
     await window.loadURL(FRONTEND_ORIGIN);
   } catch (error) {
     const message = error instanceof Error ? error.message : '서비스를 시작하지 못했습니다.';
+    const logHint = '로그: %APPDATA%\\AutoCall Lite\\logs\\';
     await window.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(
-        `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><title>AutoCall Lite</title></head><body style="font-family:Segoe UI;background:#0f172a;color:#e2e8f0;padding:2rem"><h1>AutoCall Lite frontend is not running.</h1><p>${message}</p></body></html>`,
+        `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><title>AutoCall Lite</title></head><body style="font-family:Segoe UI;background:#0f172a;color:#e2e8f0;padding:2rem"><h1>AutoCall Lite를 시작하지 못했습니다.</h1><p>${message}</p><p>${logHint}</p></body></html>`,
       )}`,
     );
   }

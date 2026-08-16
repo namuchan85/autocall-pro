@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { PrismaClient } from '../../generated/prisma/client';
+import type { PrismaClient } from '../../generated/prisma/client';
 
 export async function ensureSqliteSchema(prisma: PrismaClient): Promise<void> {
   const tables = await prisma.$queryRaw<{ name: string }[]>`
@@ -11,14 +11,17 @@ export async function ensureSqliteSchema(prisma: PrismaClient): Promise<void> {
   }
 
   const sqlPath = resolveMigrationSql();
-  const statements = readFileSync(sqlPath, 'utf8')
-    .split(';')
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0 && !item.startsWith('--'));
-
-  for (const statement of statements) {
+  for (const statement of splitSqliteMigrationStatements(readFileSync(sqlPath, 'utf8'))) {
     await prisma.$executeRawUnsafe(statement);
   }
+}
+
+export function splitSqliteMigrationStatements(sql: string): string[] {
+  return sql
+    .replace(/^\s*--.*$/gm, '')
+    .split(';')
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
 }
 
 function resolveMigrationSql(): string {

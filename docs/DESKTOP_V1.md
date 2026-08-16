@@ -40,6 +40,10 @@ npm run dist:win
 
 설치/업데이트 시 위 파일은 삭제되지 않는다.
 
+이전 빌드에서 빈 DB가 만들어졌다면 앱을 한 번 재실행하면 테이블이 생성된다. 그래도 로그인이 안 되면 `%APPDATA%\AutoCall Lite\data\autocall.db`만 지우고 다시 실행한다.
+
+Installer가 오래 걸리거나 멈추면 `release\win-unpacked\AutoCall Lite.exe`를 사용한다.
+
 ## 기존 PostgreSQL 데이터
 
 개발용 Docker PostgreSQL 데이터가 있으면, 로그인 후 `GET /settings/export` JSON을 받아 SQLite 앱에서 `POST /settings/import`로 가져올 수 있다. 자동 마이그레이션은 하지 않으며, 기존 PostgreSQL 데이터는 지우지 않는다.

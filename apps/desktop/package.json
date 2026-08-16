@@ -65,7 +65,12 @@
           "!react-dom/**",
           "!tailwindcss/**",
           "!@tailwindcss/**",
-          "!@swc/**"
+          "!@swc/**",
+          "!electron-winstaller/**",
+          "!@electron/**",
+          "!esbuild/**",
+          "!@esbuild/**",
+          "!@prisma/engines/**"
         ]
       },
       {
@@ -73,13 +78,19 @@
         "to": "frontend"
       },
       {
+        "from": "../frontend/.next/standalone/node_modules",
+        "to": "frontend/node_modules"
+      },
+      {
         "from": "../frontend/.next/static",
         "to": "frontend/apps/frontend/.next/static"
       }
     ],
     "asar": true,
+    "afterPack": "./after-pack.cjs",
     "compression": "normal",
     "win": {
+      "signAndEditExecutable": false,
       "target": [
         "nsis"
       ]
