@@ -58,7 +58,7 @@ docker-compose.yml   postgres, redis, migrate, frontend
                      Docker backend는 profile `docker-backend` (USB 불가)
 ```
 
-빈 `messages` 모듈은 만들지 않는다. 음성·DTMF는 Level 3에서 추가한다.
+빈 `messages` 모듈은 만들지 않는다. 음성·DTMF는 EXE 전환 이후 Level에서 추가한다. Level 3는 Windows EXE 전환이며 설계는 `docs/LEVEL3_WINDOWS_EXE.md`를 따른다.
 
 ## 5. 기본 Call Flow
 
@@ -132,13 +132,19 @@ Windows PC에서 USB 연결된 Galaxy를 ADB로 제어해 고객 번호 1통을 
 6. 대시보드에서 「전화 걸기」를 눌러 Galaxy 발신을 확인한다
 7. CI/단위 테스트에서는 실제 ADB를 실행하지 않는다
 
-### Lite Level 3 — 음성 안내 + DTMF
+### Lite Level 3 — Windows EXE 전환 (현재 단계)
 
-연결 후 안내 음성을 재생하고 DTMF를 수신한다. 실제 통화 상태(ANSWERED, NO_ANSWER 등) 추적을 검토한다.
+새 오토콜 기능이 아니라, Level 2를 개인용 Windows 프로그램으로 쓰는 것이 목표다. 상세 설계·비교·단계 계획은 `docs/LEVEL3_WINDOWS_EXE.md`.
+
+추천 구조: Electron이 기존 NestJS를 Windows 호스트에서 기동하고, 기존 Next UI와 `AdbProcessGateway`를 유지한다. 이 단계에서는 PostgreSQL/Redis/Auth/Prisma/ADB 코드를 삭제하거나 바꾸지 않는다.
+
+Level 3.1은 Desktop Shell PoC다. `npm run dev:desktop`이 Electron 창에서 `http://127.0.0.1:3000`만 연다. Nest/Next/Docker는 기존처럼 직접 실행하고, Electron은 아직 다른 프로세스를 띄우지 않는다.
+
+음성·DTMF·SMS·AI·대량 발신·Queue·SIP는 Level 3에서 구현하지 않는다. 안내 음성·DTMF는 예전 로드맵의 Level 3였으나 EXE 전환 이후로 미룬다.
 
 ### Lite Level 4 — 문자·결과·UI
 
-문자 발송, 통화 결과 조회, 전화번호 목록·발신·결과·설정 화면.
+문자 발송, 통화 결과 조회, 전화번호 목록·발신·결과·설정 화면. EXE가 안정된 뒤에만 검토한다.
 
 ### Lite Level 5 — 선택적 AI Voice
 
@@ -146,16 +152,16 @@ Windows PC에서 USB 연결된 Galaxy를 ADB로 제어해 고객 번호 1통을 
 
 ## 7. 기존 프로젝트에서 유지하는 요소
 
-| 요소                          | 이유                                                      |
-| ----------------------------- | --------------------------------------------------------- |
-| Customer CRUD                 | 전화번호 저장·조회가 Lite의 기반                          |
-| Prisma + PostgreSQL           | 이미 안정. SQLite 전환은 하지 않음                        |
-| Docker Compose                | 로컬 실행이 이미 동작                                     |
-| Swagger                       | API 확인                                                  |
-| 기존 테스트 / CI              | 회귀 방지                                                 |
-| JWT Auth                      | Customer API와 테스트가 의존. 이번 단계 삭제하지 않음     |
-| Redis                         | 로그인 Rate Limit에 사용 중. Call Queue로는 확장하지 않음 |
-| Soft Delete, E.164, name trim | 데이터 무결성                                             |
+| 요소                          | 이유                                                                                            |
+| ----------------------------- | ----------------------------------------------------------------------------------------------- |
+| Customer CRUD                 | 전화번호 저장·조회가 Lite의 기반                                                                |
+| Prisma + PostgreSQL           | Level 2 실행 기반. SQLite는 Level 3 설계만 (`LEVEL3_WINDOWS_EXE.md`), 지금은 migration하지 않음 |
+| Docker Compose                | 로컬 실행이 이미 동작                                                                           |
+| Swagger                       | API 확인                                                                                        |
+| 기존 테스트 / CI              | 회귀 방지                                                                                       |
+| JWT Auth                      | Customer API와 테스트가 의존. 이번 단계 삭제하지 않음                                           |
+| Redis                         | 로그인 Rate Limit에 사용 중. Call Queue로는 확장하지 않음                                       |
+| Soft Delete, E.164, name trim | 데이터 무결성                                                                                   |
 
 Customer의 `customerCode`, `company`, `status`, `doNotCall`은 Lite 최소 필드보다 많다. **이번 작업에서 migration으로 삭제하지 않는다.**
 
