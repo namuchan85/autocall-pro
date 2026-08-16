@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
 }
 
 enum Role {
@@ -16,7 +16,7 @@ enum Role {
 }
 
 model User {
-  id            String         @id @default(uuid()) @db.Uuid
+  id            String         @id @default(uuid())
   email         String         @unique
   password      String
   name          String
@@ -30,8 +30,8 @@ model User {
 }
 
 model RefreshToken {
-  id        String   @id @db.Uuid
-  userId    String   @db.Uuid
+  id        String   @id
+  userId    String
   tokenHash String
   expiresAt DateTime
   createdAt DateTime @default(now())
@@ -49,7 +49,7 @@ enum CustomerStatus {
 }
 
 model Customer {
-  id           String         @id @default(uuid()) @db.Uuid
+  id           String         @id @default(uuid())
   customerCode String         @unique
   name         String
   phoneNumber  String
@@ -79,8 +79,8 @@ enum CallProvider {
 }
 
 model Call {
-  id           String       @id @default(uuid()) @db.Uuid
-  customerId   String       @db.Uuid
+  id           String       @id @default(uuid())
+  customerId   String
   phoneNumber  String
   status       CallStatus
   provider     CallProvider @default(ADB_GALAXY)

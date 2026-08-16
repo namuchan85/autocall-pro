@@ -10,7 +10,7 @@ import { JwtStrategy } from './guards/jwt.strategy';
 import { LoginRateLimitGuard } from './guards/login-rate-limit.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PrismaAuthRepository } from './infrastructure/prisma-auth.repository';
-import { RedisLoginRateLimiter } from './infrastructure/redis-login-rate-limiter';
+import { MemoryLoginRateLimiter } from './infrastructure/memory-login-rate-limiter';
 
 @Module({
   imports: [PassportModule.register({ defaultStrategy: 'jwt' }), JwtModule.register({})],
@@ -22,14 +22,14 @@ import { RedisLoginRateLimiter } from './infrastructure/redis-login-rate-limiter
     LoginRateLimitGuard,
     RolesGuard,
     PrismaAuthRepository,
-    RedisLoginRateLimiter,
+    MemoryLoginRateLimiter,
     {
       provide: AUTH_REPOSITORY,
       useExisting: PrismaAuthRepository,
     },
     {
       provide: LOGIN_RATE_LIMITER,
-      useExisting: RedisLoginRateLimiter,
+      useExisting: MemoryLoginRateLimiter,
     },
   ],
   exports: [JwtAuthGuard, RolesGuard],

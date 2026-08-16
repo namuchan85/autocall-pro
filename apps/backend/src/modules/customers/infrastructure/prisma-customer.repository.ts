@@ -52,10 +52,10 @@ export class PrismaCustomerRepository implements CustomerRepository {
       ...(query.keyword
         ? {
             OR: [
-              { customerCode: { contains: query.keyword, mode: 'insensitive' } },
-              { name: { contains: query.keyword, mode: 'insensitive' } },
-              { phoneNumber: { contains: query.keyword, mode: 'insensitive' } },
-              { company: { contains: query.keyword, mode: 'insensitive' } },
+              { customerCode: { contains: query.keyword } },
+              { name: { contains: query.keyword } },
+              { phoneNumber: { contains: query.keyword } },
+              { company: { contains: query.keyword } },
             ],
           }
         : {}),

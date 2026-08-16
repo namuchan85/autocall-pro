@@ -3,15 +3,103 @@
   "version": "0.1.0",
   "private": true,
   "description": "AutoCall Lite Electron desktop shell",
+  "author": "AutoCall Lite",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json",
     "start": "npm run build && electron .",
-    "test": "tsc -p tsconfig.json && node --test dist/frontend-url.test.js"
+    "test": "tsc -p tsconfig.json && node --test dist/frontend-url.test.js dist/adb-discover.test.js dist/electron-security.test.js dist/secrets-file.test.js dist/process-lifecycle.test.js dist/single-instance.test.js dist/ipc-sender.test.js",
+    "dist": "npm run build && electron-builder --win nsis"
   },
   "devDependencies": {
-    "electron": "^41.10.5",
+    "electron": "41.10.5",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.9.3"
+  },
+  "build": {
+    "appId": "com.autocall.lite",
+    "productName": "AutoCall Lite",
+    "electronVersion": "41.10.5",
+    "directories": {
+      "output": "../../release"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../backend/dist",
+        "to": "backend/dist"
+      },
+      {
+        "from": "../backend/prisma",
+        "to": "backend/prisma"
+      },
+      {
+        "from": "../backend/src/generated",
+        "to": "backend/src/generated"
+      },
+      {
+        "from": "../../node_modules",
+        "to": "node_modules",
+        "filter": [
+          "**/*",
+          "!electron/**",
+          "!electron-builder/**",
+          "!app-builder-bin/**",
+          "!app-builder-lib/**",
+          "!7zip-bin/**",
+          "!typescript/**",
+          "!eslint/**",
+          "!@eslint/**",
+          "!prettier/**",
+          "!jest/**",
+          "!@jest/**",
+          "!@nestjs/cli/**",
+          "!@nestjs/schematics/**",
+          "!webpack/**",
+          "!next/**",
+          "!react/**",
+          "!react-dom/**",
+          "!tailwindcss/**",
+          "!@tailwindcss/**",
+          "!@swc/**",
+          "!electron-winstaller/**",
+          "!@electron/**",
+          "!esbuild/**",
+          "!@esbuild/**",
+          "!@prisma/engines/**"
+        ]
+      },
+      {
+        "from": "../frontend/.next/standalone",
+        "to": "frontend"
+      },
+      {
+        "from": "../frontend/.next/standalone/node_modules",
+        "to": "frontend/node_modules"
+      },
+      {
+        "from": "../frontend/.next/static",
+        "to": "frontend/apps/frontend/.next/static"
+      }
+    ],
+    "asar": true,
+    "afterPack": "./after-pack.cjs",
+    "compression": "normal",
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "artifactName": "AutoCall Lite Setup.${ext}"
+    }
   }
 }

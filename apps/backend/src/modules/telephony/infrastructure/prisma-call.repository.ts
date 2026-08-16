@@ -1,7 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import type { CallRepository } from '../domain/call.repository';
-import type { CallRecord, CallStatusPatch, NewCall } from '../domain/telephony.types';
+import type {
+  CallHistoryItem,
+  CallRecord,
+  CallStatusPatch,
+  NewCall,
+} from '../domain/telephony.types';
 
 @Injectable()
 export class PrismaCallRepository implements CallRepository {
@@ -39,6 +44,18 @@ export class PrismaCallRepository implements CallRepository {
         },
       }),
     );
+  }
+
+  async listRecent(limit: number): Promise<CallHistoryItem[]> {
+    const rows = await this.prisma.call.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      include: { customer: { select: { name: true } } },
+    });
+    return rows.map((row) => ({
+      ...toRecord(row),
+      customerName: row.customer.name,
+    }));
   }
 }
 

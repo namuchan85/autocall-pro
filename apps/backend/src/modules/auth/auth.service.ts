@@ -1,7 +1,14 @@
 import { randomUUID } from 'node:crypto';
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { LOCAL_ADMIN_EMAIL, LOCAL_ADMIN_NAME } from './domain/auth.constants';
 import {
   AUTH_REPOSITORY,
   type AuthRepository,
@@ -13,7 +20,14 @@ import type {
   AuthUserRecord,
   RefreshTokenPayload,
 } from './domain/auth.types';
-import { DUMMY_PASSWORD_HASH, hashSecret, verifyPassword, verifySecret } from './security/password';
+import {
+  DUMMY_PASSWORD_HASH,
+  hashPassword,
+  hashSecret,
+  PASSWORD_PATTERN_MESSAGE,
+  verifyPassword,
+  verifySecret,
+} from './security/password';
 
 export interface AuthSession {
   accessToken: string;
@@ -30,6 +44,35 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
+
+  async needsSetup(): Promise<boolean> {
+    const existing = await this.repository.findUserByEmail(LOCAL_ADMIN_EMAIL);
+    return existing === null;
+  }
+
+  async setupAdministrator(password: string, confirmPassword: string): Promise<void> {
+    if (password !== confirmPassword) {
+      throw new BadRequestException('Passwords do not match');
+    }
+
+    const existing = await this.repository.findUserByEmail(LOCAL_ADMIN_EMAIL);
+    if (existing) {
+      throw new ConflictException('Administrator already exists');
+    }
+
+    let passwordHash: string;
+    try {
+      passwordHash = await hashPassword(password);
+    } catch {
+      throw new BadRequestException(PASSWORD_PATTERN_MESSAGE);
+    }
+
+    await this.repository.createLocalAdmin({
+      email: LOCAL_ADMIN_EMAIL,
+      passwordHash,
+      name: LOCAL_ADMIN_NAME,
+    });
+  }
 
   async login(email: string, password: string): Promise<AuthSession> {
     const user = await this.repository.findUserByEmail(email.trim().toLowerCase());

@@ -8,11 +8,16 @@ describe('isAllowedFrontendUrl', () => {
     assert.equal(isAllowedFrontendUrl('http://127.0.0.1:3000/dashboard'), true);
   });
 
+  it('allows local bootstrap HTML data URLs', () => {
+    assert.equal(isAllowedFrontendUrl('data:text/html;charset=utf-8,<h1>AutoCall Lite</h1>'), true);
+  });
+
   it('rejects localhost, other ports, https, and external hosts', () => {
     assert.equal(isAllowedFrontendUrl('http://localhost:3000'), false);
     assert.equal(isAllowedFrontendUrl('http://127.0.0.1:3001'), false);
     assert.equal(isAllowedFrontendUrl('https://127.0.0.1:3000'), false);
     assert.equal(isAllowedFrontendUrl('https://example.com'), false);
     assert.equal(isAllowedFrontendUrl('http://evil.example.com'), false);
+    assert.equal(isAllowedFrontendUrl('data:application/javascript,alert(1)'), false);
   });
 });

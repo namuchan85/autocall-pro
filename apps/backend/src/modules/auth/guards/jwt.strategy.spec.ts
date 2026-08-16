@@ -5,6 +5,7 @@ import { JwtStrategy } from './jwt.strategy';
 
 function createRepository(): jest.Mocked<AuthRepository> {
   return {
+    createLocalAdmin: jest.fn(),
     createRefreshToken: jest.fn(),
     findActiveUserById: jest.fn(),
     findRefreshTokenById: jest.fn(),

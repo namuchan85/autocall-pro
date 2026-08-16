@@ -23,15 +23,18 @@ const PASSWORD = 'ChangeMe123!';
 
 class MemoryAuthRepository implements AuthRepository {
   private readonly tokens = new Map<string, StoredRefreshToken>();
+  private user: AuthUserRecord | null;
 
-  constructor(private readonly user: AuthUserRecord) {}
+  constructor(user: AuthUserRecord | null) {
+    this.user = user;
+  }
 
   findUserByEmail(email: string): Promise<AuthUserRecord | null> {
-    return Promise.resolve(email === this.user.email ? this.user : null);
+    return Promise.resolve(this.user?.email === email ? this.user : null);
   }
 
   findActiveUserById(id: string) {
-    if (id !== this.user.id || !this.user.isActive) {
+    if (!this.user || id !== this.user.id || !this.user.isActive) {
       return Promise.resolve(null);
     }
     return Promise.resolve({
@@ -40,6 +43,18 @@ class MemoryAuthRepository implements AuthRepository {
       name: this.user.name,
       role: this.user.role,
     });
+  }
+
+  createLocalAdmin(input: { email: string; passwordHash: string; name: string }): Promise<void> {
+    this.user = {
+      id: USER_ID,
+      email: input.email,
+      password: input.passwordHash,
+      name: input.name,
+      role: Role.SUPER_ADMIN,
+      isActive: true,
+    };
+    return Promise.resolve();
   }
 
   findRefreshTokenById(id: string): Promise<StoredRefreshToken | null> {
@@ -120,16 +135,10 @@ function readErrorMessage(body: unknown): unknown {
 
 describe('Auth HTTP integration', () => {
   let app: INestApplication | undefined;
+  let repository: MemoryAuthRepository;
 
-  async function createApp(maxAttempts: number): Promise<void> {
-    const user: AuthUserRecord = {
-      id: USER_ID,
-      email: EMAIL,
-      password: await hashPassword(PASSWORD, 4),
-      name: 'Administrator',
-      role: Role.SUPER_ADMIN,
-      isActive: true,
-    };
+  async function createApp(maxAttempts: number, user: AuthUserRecord | null): Promise<void> {
+    repository = new MemoryAuthRepository(user);
 
     const moduleRef = await Test.createTestingModule({
       imports: [
@@ -142,7 +151,7 @@ describe('Auth HTTP integration', () => {
       providers: [
         AuthService,
         LoginRateLimitGuard,
-        { provide: AUTH_REPOSITORY, useValue: new MemoryAuthRepository(user) },
+        { provide: AUTH_REPOSITORY, useValue: repository },
         { provide: LOGIN_RATE_LIMITER, useValue: new MemoryLoginRateLimiter(maxAttempts) },
       ],
     }).compile();
@@ -171,8 +180,61 @@ describe('Auth HTTP integration', () => {
     app = undefined;
   });
 
+  async function seededUser(): Promise<AuthUserRecord> {
+    return {
+      id: USER_ID,
+      email: EMAIL,
+      password: await hashPassword(PASSWORD, 4),
+      name: 'Administrator',
+      role: Role.SUPER_ADMIN,
+      isActive: true,
+    };
+  }
+
+  it('creates the first administrator with a bcrypt hash and no plaintext password', async () => {
+    await createApp(20, null);
+
+    const status = await request(httpServer()).get('/auth/setup-status');
+    expect(status.status).toBe(200);
+    expect(status.body).toEqual({ needsSetup: true });
+
+    const setup = await request(httpServer())
+      .post('/auth/setup')
+      .send({ password: PASSWORD, confirmPassword: PASSWORD });
+    expect(setup.status).toBe(200);
+
+    const created = await repository.findUserByEmail(EMAIL);
+    expect(created?.password.startsWith('$2b$')).toBe(true);
+    expect(created?.password).not.toContain(PASSWORD);
+    expect(JSON.stringify(setup.body)).not.toContain(PASSWORD);
+
+    const after = await request(httpServer()).get('/auth/setup-status');
+    expect(after.body).toEqual({ needsSetup: false });
+
+    const login = await request(httpServer())
+      .post('/auth/login')
+      .send({ email: EMAIL, password: PASSWORD });
+    expect(login.status).toBe(200);
+  });
+
+  it('does not recreate an existing administrator', async () => {
+    const existing = await seededUser();
+    await createApp(20, existing);
+
+    const status = await request(httpServer()).get('/auth/setup-status');
+    expect(status.body).toEqual({ needsSetup: false });
+
+    const setup = await request(httpServer())
+      .post('/auth/setup')
+      .send({ password: 'AnotherPass1!', confirmPassword: 'AnotherPass1!' });
+    expect(setup.status).toBe(409);
+
+    const unchanged = await repository.findUserByEmail(EMAIL);
+    expect(unchanged?.password).toBe(existing.password);
+  });
+
   it('logs in, rotates refresh tokens, and rejects refresh after logout', async () => {
-    await createApp(20);
+    await createApp(20, await seededUser());
 
     const login = await request(httpServer())
       .post('/auth/login')
@@ -204,7 +266,7 @@ describe('Auth HTTP integration', () => {
   });
 
   it('accepts a login password that does not match signup complexity rules', async () => {
-    await createApp(20);
+    await createApp(20, await seededUser());
 
     const response = await request(httpServer())
       .post('/auth/login')
@@ -217,7 +279,7 @@ describe('Auth HTTP integration', () => {
   });
 
   it('returns 429 after the login rate limit is exceeded', async () => {
-    await createApp(3);
+    await createApp(3, await seededUser());
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const failed = await request(httpServer())
