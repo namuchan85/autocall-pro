@@ -11,6 +11,13 @@ describe('Electron security', () => {
     assert.match(source, /sandbox:\s*true/);
   });
 
+  it('requests a single instance lock before starting child processes', () => {
+    const source = readFileSync(path.join(__dirname, 'main.js'), 'utf8');
+    assert.match(source, /requestSingleInstanceLock/);
+    assert.match(source, /showOpenDialog\(window/);
+    assert.match(source, /isTrustedIpcSender/);
+  });
+
   it('exposes only the ADB path picker from preload', () => {
     const source = readFileSync(path.join(__dirname, 'preload.js'), 'utf8');
     assert.match(source, /pick-adb-path/);

@@ -1,11 +1,15 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
 import { FRONTEND_ORIGIN, isAllowedFrontendUrl } from './frontend-url';
+import { isTrustedIpcSender } from './ipc-sender';
 import { DesktopProcessManager } from './process-manager';
 import { createDesktopRuntime } from './runtime-env';
+import { focusExistingWindow, shouldQuitForSecondInstance } from './single-instance';
 
 const WINDOW_TITLE = 'AutoCall Lite';
 const processes = new DesktopProcessManager();
+let mainWindow: BrowserWindow | undefined;
+let isShuttingDown = false;
 
 const STARTING_HTML = `<!DOCTYPE html>
 <html lang="ko">
@@ -58,6 +62,16 @@ async function createMainWindow(): Promise<BrowserWindow> {
   return window;
 }
 
+function isTrustedPickAdbSender(event: IpcMainInvokeEvent, window: BrowserWindow): boolean {
+  const frame = event.senderFrame;
+  return isTrustedIpcSender({
+    senderUrl: frame?.url,
+    isMainFrame: Boolean(frame && frame === event.sender.mainFrame),
+    senderWebContentsId: event.sender.id,
+    mainWindowWebContentsId: window.webContents.id,
+  });
+}
+
 async function bootstrap(): Promise<void> {
   app.setName(WINDOW_TITLE);
   if (process.platform === 'win32') {
@@ -66,8 +80,12 @@ async function bootstrap(): Promise<void> {
 
   applyWebContentsGuards();
   Menu.setApplicationMenu(null);
-  ipcMain.handle('pick-adb-path', async () => {
-    const result = await dialog.showOpenDialog({
+  ipcMain.handle('pick-adb-path', async (event) => {
+    const window = mainWindow;
+    if (!window || window.isDestroyed() || !isTrustedPickAdbSender(event, window)) {
+      return '';
+    }
+    const result = await dialog.showOpenDialog(window, {
       title: 'adb.exe 선택',
       properties: ['openFile'],
       filters: [{ name: 'adb', extensions: ['exe'] }],
@@ -76,15 +94,16 @@ async function bootstrap(): Promise<void> {
   });
 
   await app.whenReady();
-  const window = await createMainWindow();
+  mainWindow = await createMainWindow();
   try {
     const runtime = createDesktopRuntime();
     await processes.start(runtime);
-    await window.loadURL(FRONTEND_ORIGIN);
+    await mainWindow.loadURL(FRONTEND_ORIGIN);
   } catch (error) {
+    await processes.stop();
     const message = error instanceof Error ? error.message : '서비스를 시작하지 못했습니다.';
     const logHint = '로그: %APPDATA%\\AutoCall Lite\\logs\\';
-    await window.loadURL(
+    await mainWindow.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(
         `<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"/><title>AutoCall Lite</title></head><body style="font-family:Segoe UI;background:#0f172a;color:#e2e8f0;padding:2rem"><h1>AutoCall Lite를 시작하지 못했습니다.</h1><p>${message}</p><p>${logHint}</p></body></html>`,
       )}`,
@@ -93,20 +112,43 @@ async function bootstrap(): Promise<void> {
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      void createMainWindow();
+      void createMainWindow().then((window) => {
+        mainWindow = window;
+      });
     }
   });
 }
 
-app.on('before-quit', () => {
-  processes.stop();
-});
-
-app.on('window-all-closed', () => {
-  processes.stop();
-  if (process.platform !== 'darwin') {
-    app.quit();
+async function shutdownAndQuit(): Promise<void> {
+  if (isShuttingDown) {
+    return;
   }
-});
+  isShuttingDown = true;
+  await processes.stop();
+  app.quit();
+}
 
-void bootstrap();
+const gotLock = app.requestSingleInstanceLock();
+if (shouldQuitForSecondInstance(gotLock)) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    focusExistingWindow(mainWindow ?? null);
+  });
+
+  app.on('before-quit', (event) => {
+    if (isShuttingDown) {
+      return;
+    }
+    event.preventDefault();
+    void shutdownAndQuit();
+  });
+
+  app.on('window-all-closed', () => {
+    if (process.platform !== 'darwin') {
+      void shutdownAndQuit();
+    }
+  });
+
+  void bootstrap();
+}

@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { appendFileSync, createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
+import { startBackendThenFrontend, stopProcessTree } from './process-lifecycle';
 import type { DesktopRuntime } from './runtime-env';
 
 const BACKEND_URL = 'http://127.0.0.1:3001/health';
@@ -12,41 +13,76 @@ export class DesktopProcessManager {
   private frontend: ChildProcess | undefined;
   private backendExitCode: number | null = null;
   private frontendExitCode: number | null = null;
+  private logDir: string | undefined;
+  private stopping: Promise<void> | undefined;
 
   async start(runtime: DesktopRuntime): Promise<void> {
+    this.logDir = runtime.logDir;
     mkdirSync(runtime.logDir, { recursive: true });
-    appendFileSync(path.join(runtime.logDir, 'app.log'), `${new Date().toISOString()} app start\n`);
+    this.appendLog('app start');
 
     this.backendExitCode = null;
     this.frontendExitCode = null;
-    this.backend = this.spawnNode(this.backendEntry(), runtime.env, this.backendCwd());
-    this.backend.once('exit', (code) => {
-      this.backendExitCode = code ?? 1;
+
+    const started = await startBackendThenFrontend({
+      startBackend: () => {
+        this.backend = this.spawnNode(this.backendEntry(), runtime.env, this.backendCwd());
+        this.backend.once('exit', (code) => {
+          this.backendExitCode = code ?? 1;
+        });
+        this.attachLog(this.backend, path.join(runtime.logDir, 'backend.log'));
+        return this.backend;
+      },
+      startFrontend: () => {
+        this.frontend = this.spawnFrontend(runtime.env);
+        this.frontend.once('exit', (code) => {
+          this.frontendExitCode = code ?? 1;
+        });
+        this.attachLog(this.frontend, path.join(runtime.logDir, 'frontend.log'));
+        return this.frontend;
+      },
+      waitUntilReady: (name) => this.waitForService(name),
+      stop: (child) => this.stopOne(child),
     });
-    this.attachLog(this.backend, path.join(runtime.logDir, 'backend.log'));
-    this.frontend = this.spawnFrontend(runtime.env);
-    this.frontend.once('exit', (code) => {
-      this.frontendExitCode = code ?? 1;
-    });
-    this.attachLog(this.frontend, path.join(runtime.logDir, 'frontend.log'));
-    await Promise.all([
-      this.waitForService(BACKEND_URL, 45_000, 'backend'),
-      this.waitForService(FRONTEND_URL, 120_000, 'frontend'),
-    ]);
+    this.backend = started.backend;
+    this.frontend = started.frontend;
   }
 
-  stop(): void {
-    stopChild(this.frontend);
-    stopChild(this.backend);
-    this.frontend = undefined;
-    this.backend = undefined;
+  async stop(): Promise<void> {
+    if (this.stopping) {
+      return this.stopping;
+    }
+    this.stopping = this.stopAll();
+    try {
+      await this.stopping;
+    } finally {
+      this.stopping = undefined;
+    }
   }
 
-  private async waitForService(
-    url: string,
-    timeoutMs: number,
-    name: 'backend' | 'frontend',
-  ): Promise<void> {
+  private async stopAll(): Promise<void> {
+    const frontend = this.frontend;
+    const backend = this.backend;
+    await this.stopOne(frontend);
+    await this.stopOne(backend);
+    if (this.frontend === frontend) {
+      this.frontend = undefined;
+    }
+    if (this.backend === backend) {
+      this.backend = undefined;
+    }
+  }
+
+  private async stopOne(child: ChildProcess | undefined): Promise<void> {
+    await stopProcessTree(child, {
+      platform: process.platform,
+      log: (message) => this.appendLog(message),
+    });
+  }
+
+  private async waitForService(name: 'backend' | 'frontend'): Promise<void> {
+    const url = name === 'backend' ? BACKEND_URL : FRONTEND_URL;
+    const timeoutMs = name === 'backend' ? 45_000 : 120_000;
     const started = Date.now();
     let lastError = 'timeout';
     while (Date.now() - started < timeoutMs) {
@@ -113,6 +149,13 @@ export class DesktopProcessManager {
     });
   }
 
+  private appendLog(message: string): void {
+    if (!this.logDir) {
+      return;
+    }
+    appendFileSync(path.join(this.logDir, 'app.log'), `${new Date().toISOString()} ${message}\n`);
+  }
+
   private repoRoot(): string {
     return path.resolve(__dirname, '../../..');
   }
@@ -149,20 +192,6 @@ export class DesktopProcessManager {
     }
     return candidate;
   }
-}
-
-function stopChild(child: ChildProcess | undefined): void {
-  if (!child?.pid) {
-    return;
-  }
-  if (process.platform === 'win32') {
-    spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
-      windowsHide: true,
-      stdio: 'ignore',
-    });
-    return;
-  }
-  child.kill('SIGTERM');
 }
 
 function delay(ms: number): Promise<void> {
