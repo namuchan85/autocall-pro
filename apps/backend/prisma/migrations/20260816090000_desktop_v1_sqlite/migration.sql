@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE "users" (
 );
 
 -- CreateTable
-CREATE TABLE "refresh_tokens" (
+CREATE TABLE IF NOT EXISTS "refresh_tokens" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "userId" TEXT NOT NULL,
     "tokenHash" TEXT NOT NULL,
@@ -21,7 +21,7 @@ CREATE TABLE "refresh_tokens" (
 );
 
 -- CreateTable
-CREATE TABLE "customers" (
+CREATE TABLE IF NOT EXISTS "customers" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "customerCode" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -36,7 +36,7 @@ CREATE TABLE "customers" (
 );
 
 -- CreateTable
-CREATE TABLE "calls" (
+CREATE TABLE IF NOT EXISTS "calls" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "customerId" TEXT NOT NULL,
     "phoneNumber" TEXT NOT NULL,
@@ -50,28 +50,28 @@ CREATE TABLE "calls" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "users_email_key" ON "users"("email");
 
 -- CreateIndex
-CREATE INDEX "refresh_tokens_userId_idx" ON "refresh_tokens"("userId");
+CREATE INDEX IF NOT EXISTS "refresh_tokens_userId_idx" ON "refresh_tokens"("userId");
 
 -- CreateIndex
-CREATE INDEX "refresh_tokens_expiresAt_idx" ON "refresh_tokens"("expiresAt");
+CREATE INDEX IF NOT EXISTS "refresh_tokens_expiresAt_idx" ON "refresh_tokens"("expiresAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "customers_customerCode_key" ON "customers"("customerCode");
+CREATE UNIQUE INDEX IF NOT EXISTS "customers_customerCode_key" ON "customers"("customerCode");
 
 -- CreateIndex
-CREATE INDEX "customers_status_idx" ON "customers"("status");
+CREATE INDEX IF NOT EXISTS "customers_status_idx" ON "customers"("status");
 
 -- CreateIndex
-CREATE INDEX "customers_doNotCall_idx" ON "customers"("doNotCall");
+CREATE INDEX IF NOT EXISTS "customers_doNotCall_idx" ON "customers"("doNotCall");
 
 -- CreateIndex
-CREATE INDEX "customers_deletedAt_idx" ON "customers"("deletedAt");
+CREATE INDEX IF NOT EXISTS "customers_deletedAt_idx" ON "customers"("deletedAt");
 
 -- CreateIndex
-CREATE INDEX "calls_customerId_idx" ON "calls"("customerId");
+CREATE INDEX IF NOT EXISTS "calls_customerId_idx" ON "calls"("customerId");
 
 -- CreateIndex
-CREATE INDEX "calls_createdAt_idx" ON "calls"("createdAt");
+CREATE INDEX IF NOT EXISTS "calls_createdAt_idx" ON "calls"("createdAt");
