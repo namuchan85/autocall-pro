@@ -13,7 +13,11 @@ import { Role } from '../../generated/prisma/enums';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { CallResponseDto, TelephonyDeviceResponseDto } from './dto/call-response.dto';
+import {
+  CallHistoryResponseDto,
+  CallResponseDto,
+  TelephonyDeviceResponseDto,
+} from './dto/call-response.dto';
 import { PlaceCallDto } from './dto/place-call.dto';
 import { TelephonyService } from './telephony.service';
 
@@ -28,9 +32,16 @@ export class TelephonyController {
   @Get('device')
   @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.VIEWER)
   @ApiOkResponse({ type: TelephonyDeviceResponseDto })
-  @ApiServiceUnavailableResponse({ description: 'Galaxy is not ready for ADB calling' })
   getDevice(): Promise<TelephonyDeviceResponseDto> {
     return this.telephony.getDevice();
+  }
+
+  @Get('calls')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER, Role.VIEWER)
+  @ApiOkResponse({ type: [CallHistoryResponseDto] })
+  async listCalls(): Promise<CallHistoryResponseDto[]> {
+    const items = await this.telephony.listRecentCalls();
+    return items.map((item) => CallHistoryResponseDto.fromHistory(item));
   }
 
   @Post('call')

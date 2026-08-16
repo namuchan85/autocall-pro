@@ -30,12 +30,28 @@ export interface CallStatusPatch {
   errorMessage?: string | null;
 }
 
+export interface CallHistoryItem extends CallRecord {
+  customerName: string;
+}
+
 export interface AdbDeviceRow {
   id: string;
   state: string;
 }
 
+export const DEVICE_CONNECTION_STATUSES = [
+  'connected',
+  'unauthorized',
+  'offline',
+  'not_found',
+  'not_configured',
+  'adb_missing',
+] as const;
+export type DeviceConnectionStatus = (typeof DEVICE_CONNECTION_STATUSES)[number];
+
 export interface TelephonyDeviceStatus {
-  connected: true;
-  deviceId: string;
+  status: DeviceConnectionStatus;
+  connected: boolean;
+  deviceId: string | null;
+  devices: AdbDeviceRow[];
 }

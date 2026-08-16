@@ -1,6 +1,5 @@
 const REQUIRED_VARIABLES = [
   'DATABASE_URL',
-  'REDIS_URL',
   'JWT_ACCESS_SECRET',
   'JWT_REFRESH_SECRET',
   'FRONTEND_URL',
@@ -57,6 +56,7 @@ export function validateEnvironment(config: Record<string, unknown>): Record<str
     TRUST_PROXY_HOPS: trustProxyHops,
     ADB_PATH: optionalString(config.ADB_PATH),
     ADB_DEVICE_ID: optionalAdbDeviceId(config.ADB_DEVICE_ID),
+    SETTINGS_PATH: optionalString(config.SETTINGS_PATH, 'SETTINGS_PATH'),
   };
 }
 
@@ -75,12 +75,12 @@ function parsePositiveInteger(value: unknown, name: string): number {
   return parsed;
 }
 
-function optionalString(value: unknown): string {
+function optionalString(value: unknown, name = 'ADB_PATH'): string {
   if (value === undefined || value === null) {
     return '';
   }
   if (typeof value !== 'string') {
-    throw new Error('Environment variable ADB_PATH must be a string');
+    throw new Error(`Environment variable ${name} must be a string`);
   }
   return value.trim();
 }

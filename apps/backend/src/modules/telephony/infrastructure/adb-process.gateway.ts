@@ -1,7 +1,8 @@
 import { execFile as execFileCallback } from 'node:child_process';
 import { promisify } from 'node:util';
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable, Logger } from '@nestjs/common';
+import type { AdbRuntimeSettings } from '../../settings/domain/adb-runtime-settings';
+import { ADB_RUNTIME_SETTINGS } from '../../settings/domain/adb-runtime-settings';
 import type { AdbGateway } from '../domain/adb.gateway';
 import {
   AdbCommandFailedError,
@@ -21,7 +22,7 @@ const ADB_TIMEOUT_MS = 10_000;
 export class AdbProcessGateway implements AdbGateway {
   private readonly logger = new Logger(AdbProcessGateway.name);
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(@Inject(ADB_RUNTIME_SETTINGS) private readonly settings: AdbRuntimeSettings) {}
 
   async listDevices(): Promise<AdbDeviceRow[]> {
     const adbPath = this.requireAdbPath();
@@ -75,7 +76,7 @@ export class AdbProcessGateway implements AdbGateway {
   }
 
   private requireAdbPath(): string {
-    const adbPath = this.config.get<string>('ADB_PATH')?.trim() ?? '';
+    const adbPath = this.settings.getAdbPath();
     if (!adbPath) {
       throw new TelephonyConfigError('ADB executable is not configured');
     }

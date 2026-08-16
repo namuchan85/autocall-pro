@@ -2,17 +2,35 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   CALL_PROVIDERS,
   CALL_STATUSES,
+  DEVICE_CONNECTION_STATUSES,
+  type CallHistoryItem,
   type CallProvider,
   type CallRecord,
   type CallStatus,
+  type DeviceConnectionStatus,
+  type TelephonyDeviceStatus,
 } from '../domain/telephony.types';
 
-export class TelephonyDeviceResponseDto {
-  @ApiProperty({ example: true })
-  connected!: true;
+export class AdbDeviceRowDto {
+  @ApiProperty()
+  id!: string;
 
-  @ApiProperty({ example: 'TESTDEVICE01' })
-  deviceId!: string;
+  @ApiProperty()
+  state!: string;
+}
+
+export class TelephonyDeviceResponseDto implements TelephonyDeviceStatus {
+  @ApiProperty({ enum: DEVICE_CONNECTION_STATUSES })
+  status!: DeviceConnectionStatus;
+
+  @ApiProperty()
+  connected!: boolean;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  deviceId!: string | null;
+
+  @ApiProperty({ type: [AdbDeviceRowDto] })
+  devices!: AdbDeviceRowDto[];
 }
 
 export class CallResponseDto {
@@ -54,6 +72,18 @@ export class CallResponseDto {
       errorMessage: record.errorMessage,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
+    };
+  }
+}
+
+export class CallHistoryResponseDto extends CallResponseDto {
+  @ApiProperty()
+  customerName!: string;
+
+  static fromHistory(record: CallHistoryItem): CallHistoryResponseDto {
+    return {
+      ...CallResponseDto.fromRecord(record),
+      customerName: record.customerName,
     };
   }
 }

@@ -1,6 +1,5 @@
 export const TEST_ENVIRONMENT = {
-  DATABASE_URL: 'postgresql://test:test@127.0.0.1:5432/autocall_test?schema=public',
-  REDIS_URL: 'redis://127.0.0.1:6379',
+  DATABASE_URL: 'file:./tmp/autocall-test.db',
   JWT_ACCESS_SECRET: 'test-jwt-access-secret-32bytes-min',
   JWT_REFRESH_SECRET: 'test-jwt-refresh-secret-32bytes-mn',
   JWT_ACCESS_TTL_SECONDS: '900',
@@ -15,6 +14,7 @@ export const TEST_ENVIRONMENT = {
   PORT: '3001',
   ADB_PATH: 'C:\\platform-tools\\adb.exe',
   ADB_DEVICE_ID: 'TESTDEVICE01',
+  SETTINGS_PATH: './tmp/settings.json',
 } as const;
 
 export function applyTestEnvironment(env: NodeJS.ProcessEnv = process.env): void {

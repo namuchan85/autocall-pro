@@ -22,6 +22,7 @@ import type {
   CustomerRecord,
   NewCustomer,
 } from '../customers/domain/customer.types';
+import { ADB_RUNTIME_SETTINGS } from '../settings/domain/adb-runtime-settings';
 import { ADB_GATEWAY, type AdbGateway } from './domain/adb.gateway';
 import { CALL_REPOSITORY, type CallRepository } from './domain/call.repository';
 import type { CallRecord, CallStatusPatch, NewCall } from './domain/telephony.types';
@@ -113,6 +114,18 @@ class MemoryCallRepository implements CallRepository {
     current.updatedAt = new Date();
     return Promise.resolve(current);
   }
+
+  listRecent(limit: number) {
+    return Promise.resolve(
+      this.records
+        .slice(-limit)
+        .reverse()
+        .map((item) => ({
+          ...item,
+          customerName: 'Hong Gildong',
+        })),
+    );
+  }
 }
 
 function sampleCustomer(overrides: Partial<CustomerRecord> = {}): CustomerRecord {
@@ -170,6 +183,20 @@ describe('Telephony HTTP integration', () => {
         { provide: CUSTOMER_REPOSITORY, useValue: new MemoryCustomerRepository(customers) },
         { provide: CALL_REPOSITORY, useValue: calls },
         { provide: ADB_GATEWAY, useValue: adb },
+        {
+          provide: ADB_RUNTIME_SETTINGS,
+          useValue: {
+            getAdbPath: () =>
+              typeof configOverrides.ADB_PATH === 'string'
+                ? configOverrides.ADB_PATH
+                : TEST_ENVIRONMENT.ADB_PATH,
+            getDeviceId: () =>
+              typeof configOverrides.ADB_DEVICE_ID === 'string'
+                ? configOverrides.ADB_DEVICE_ID
+                : TEST_ENVIRONMENT.ADB_DEVICE_ID,
+            save: () => Promise.resolve(),
+          },
+        },
       ],
     }).compile();
 
@@ -211,56 +238,60 @@ describe('Telephony HTTP integration', () => {
       .get('/telephony/device')
       .set('Authorization', await bearer());
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ connected: true, deviceId: DEVICE_ID });
+    expect(response.body).toMatchObject({
+      status: 'connected',
+      connected: true,
+      deviceId: DEVICE_ID,
+    });
   });
 
-  it('returns an error when no ADB device is attached', async () => {
+  it('returns not_found when no ADB device is attached', async () => {
     await createApp([sampleCustomer()]);
     listDevices.mockResolvedValue([]);
     const response = await request(httpServer())
       .get('/telephony/device')
       .set('Authorization', await bearer());
-    expect(response.status).toBe(503);
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ status: 'not_found', connected: false });
   });
 
-  it('returns 503 when ADB_PATH is not configured', async () => {
+  it('returns not_configured when ADB_PATH is not configured', async () => {
     await createApp([sampleCustomer()], { ADB_PATH: '' });
     const response = await request(httpServer())
       .get('/telephony/device')
       .set('Authorization', await bearer());
-    expect(response.status).toBe(503);
-    expect(readMessage(response.body)).toBe('ADB executable is not configured');
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ status: 'not_configured' });
     expect(listDevices).not.toHaveBeenCalled();
   });
 
-  it('returns 503 when ADB_DEVICE_ID is not configured', async () => {
+  it('returns not_configured when ADB_DEVICE_ID is not configured', async () => {
     await createApp([sampleCustomer()], { ADB_DEVICE_ID: '' });
     const response = await request(httpServer())
       .get('/telephony/device')
       .set('Authorization', await bearer());
-    expect(response.status).toBe(503);
-    expect(readMessage(response.body)).toBe('ADB device is not configured');
-    expect(listDevices).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ status: 'not_configured', connected: false });
   });
 
-  it('returns 503 when Galaxy USB debugging is unauthorized', async () => {
+  it('returns unauthorized when Galaxy USB debugging is unauthorized', async () => {
     await createApp([sampleCustomer()]);
     listDevices.mockResolvedValue([{ id: DEVICE_ID, state: 'unauthorized' }]);
     const response = await request(httpServer())
       .get('/telephony/device')
       .set('Authorization', await bearer());
-    expect(response.status).toBe(503);
-    expect(readMessage(response.body)).toBe('Galaxy USB debugging is unauthorized');
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ status: 'unauthorized' });
   });
 
-  it('returns 503 when Galaxy is offline', async () => {
+  it('returns offline when Galaxy is offline', async () => {
     await createApp([sampleCustomer()]);
     listDevices.mockResolvedValue([{ id: DEVICE_ID, state: 'offline' }]);
     const response = await request(httpServer())
       .get('/telephony/device')
       .set('Authorization', await bearer());
-    expect(response.status).toBe(503);
-    expect(readMessage(response.body)).toBe('Galaxy is offline');
+    expect(response.status).toBe(200);
+    expect(response.body).toMatchObject({ status: 'offline' });
   });
 
   it('places a call after loading a customer and records STARTED', async () => {
@@ -352,18 +383,6 @@ describe('Telephony HTTP integration', () => {
     expect(calls.records).toHaveLength(0);
   });
 });
-
-function readMessage(body: unknown): string {
-  if (
-    typeof body === 'object' &&
-    body !== null &&
-    'message' in body &&
-    typeof body.message === 'string'
-  ) {
-    return body.message;
-  }
-  throw new Error('Unexpected error response');
-}
 
 function readStatus(body: unknown): string {
   if (

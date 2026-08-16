@@ -1,4 +1,3 @@
-import { ConfigService } from '@nestjs/config';
 import {
   BadRequestException,
   ForbiddenException,
@@ -7,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { CustomersService } from '../customers/customers.service';
 import type { CustomerRecord } from '../customers/domain/customer.types';
+import type { AdbRuntimeSettings } from '../settings/domain/adb-runtime-settings';
 import type { AdbGateway } from './domain/adb.gateway';
 import type { CallRepository } from './domain/call.repository';
 import { AdbCommandFailedError, AdbExecutableMissingError } from './domain/telephony.errors';
@@ -72,6 +72,7 @@ function createService(
   const calls = {
     create: createCallRecord,
     updateStatus,
+    listRecent: jest.fn(),
   } as jest.Mocked<CallRepository>;
   const adb = {
     listDevices,
@@ -80,20 +81,14 @@ function createService(
   const customers = {
     getById: overrides.getById ?? jest.fn().mockResolvedValue(createCustomer()),
   } as Pick<CustomersService, 'getById'>;
-  const config = {
-    get: jest.fn((key: string) => {
-      if (key === 'ADB_DEVICE_ID') {
-        return overrides.deviceId ?? DEVICE_ID;
-      }
-      if (key === 'ADB_PATH') {
-        return overrides.adbPath ?? 'C:\\platform-tools\\adb.exe';
-      }
-      return '';
-    }),
-  } as unknown as ConfigService;
+  const settings: AdbRuntimeSettings = {
+    getAdbPath: () => overrides.adbPath ?? 'C:\\platform-tools\\adb.exe',
+    getDeviceId: () => overrides.deviceId ?? DEVICE_ID,
+    save: () => Promise.resolve(),
+  };
 
   return {
-    service: new TelephonyService(config, customers as CustomersService, calls, adb),
+    service: new TelephonyService(settings, customers as CustomersService, calls, adb),
     createCallRecord,
     updateStatus,
     startCall,
@@ -105,53 +100,50 @@ describe('TelephonyService', () => {
     const { service } = createService();
 
     await expect(service.getDevice()).resolves.toEqual({
+      status: 'connected',
       connected: true,
       deviceId: DEVICE_ID,
+      devices: [{ id: DEVICE_ID, state: 'device' }],
     });
   });
 
-  it('rejects when no device is attached', async () => {
+  it('reports not_found when no device is attached', async () => {
     const { service } = createService({
       adb: { listDevices: jest.fn().mockResolvedValue([]) },
     });
 
-    await expect(service.getDevice()).rejects.toBeInstanceOf(ServiceUnavailableException);
+    await expect(service.getDevice()).resolves.toMatchObject({
+      status: 'not_found',
+      connected: false,
+    });
   });
 
-  it('rejects when ADB_PATH is not configured', async () => {
+  it('reports not_configured when ADB_PATH is missing', async () => {
     const { service } = createService({ adbPath: '' });
 
-    await expect(service.getDevice()).rejects.toMatchObject({
-      message: 'ADB executable is not configured',
-    });
+    await expect(service.getDevice()).resolves.toMatchObject({ status: 'not_configured' });
   });
 
-  it('rejects when ADB_DEVICE_ID is not configured', async () => {
+  it('reports not_configured when ADB_DEVICE_ID is missing', async () => {
     const { service } = createService({ deviceId: '' });
 
-    await expect(service.getDevice()).rejects.toMatchObject({
-      message: 'ADB device is not configured',
-    });
+    await expect(service.getDevice()).resolves.toMatchObject({ status: 'not_configured' });
   });
 
-  it('rejects when Galaxy USB debugging is unauthorized', async () => {
+  it('reports unauthorized when Galaxy USB debugging is unauthorized', async () => {
     const { service } = createService({
       adb: { listDevices: jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'unauthorized' }]) },
     });
 
-    await expect(service.getDevice()).rejects.toMatchObject({
-      message: 'Galaxy USB debugging is unauthorized',
-    });
+    await expect(service.getDevice()).resolves.toMatchObject({ status: 'unauthorized' });
   });
 
-  it('rejects when Galaxy is offline', async () => {
+  it('reports offline when Galaxy is offline', async () => {
     const { service } = createService({
       adb: { listDevices: jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'offline' }]) },
     });
 
-    await expect(service.getDevice()).rejects.toMatchObject({
-      message: 'Galaxy is offline',
-    });
+    await expect(service.getDevice()).resolves.toMatchObject({ status: 'offline' });
   });
 
   it('places a call and records STARTED', async () => {

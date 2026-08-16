@@ -6,9 +6,12 @@ import {
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { CustomersService } from '../customers/customers.service';
 import { E164_PHONE_MESSAGE, isE164PhoneNumber } from '../customers/validation/phone-number';
+import {
+  ADB_RUNTIME_SETTINGS,
+  type AdbRuntimeSettings,
+} from '../settings/domain/adb-runtime-settings';
 import { ADB_GATEWAY, type AdbGateway } from './domain/adb.gateway';
 import { CALL_REPOSITORY, type CallRepository } from './domain/call.repository';
 import {
@@ -19,7 +22,7 @@ import {
   AdbExecutableMissingError,
   TelephonyConfigError,
 } from './domain/telephony.errors';
-import type { CallRecord, TelephonyDeviceStatus } from './domain/telephony.types';
+import type { CallHistoryItem, CallRecord, TelephonyDeviceStatus } from './domain/telephony.types';
 import { isSafeAdbDeviceId } from './validation/adb-device-id';
 import { callEligibilityMessage } from './validation/call-eligibility';
 import { sanitizeErrorMessage } from './validation/sanitize-error-message';
@@ -27,21 +30,58 @@ import { sanitizeErrorMessage } from './validation/sanitize-error-message';
 @Injectable()
 export class TelephonyService {
   constructor(
-    private readonly config: ConfigService,
+    @Inject(ADB_RUNTIME_SETTINGS) private readonly settings: AdbRuntimeSettings,
     private readonly customers: CustomersService,
     @Inject(CALL_REPOSITORY) private readonly calls: CallRepository,
     @Inject(ADB_GATEWAY) private readonly adb: AdbGateway,
   ) {}
 
   async getDevice(): Promise<TelephonyDeviceStatus> {
+    const adbPath = this.settings.getAdbPath();
+    const configuredId = this.settings.getDeviceId().trim();
+    if (!adbPath) {
+      return {
+        status: 'not_configured',
+        connected: false,
+        deviceId: configuredId || null,
+        devices: [],
+      };
+    }
+
     try {
-      this.requireAdbPath();
-      const deviceId = this.configuredDeviceId();
-      await this.assertDeviceReady(deviceId);
-      return { connected: true, deviceId };
+      const devices = await this.adb.listDevices();
+      if (!configuredId) {
+        return { status: 'not_configured', connected: false, deviceId: null, devices };
+      }
+      const found = devices.find((item) => item.id === configuredId);
+      if (!found) {
+        return { status: 'not_found', connected: false, deviceId: configuredId, devices };
+      }
+      if (found.state === 'unauthorized') {
+        return { status: 'unauthorized', connected: false, deviceId: configuredId, devices };
+      }
+      if (found.state === 'offline') {
+        return { status: 'offline', connected: false, deviceId: configuredId, devices };
+      }
+      if (found.state !== 'device') {
+        return { status: 'not_found', connected: false, deviceId: configuredId, devices };
+      }
+      return { status: 'connected', connected: true, deviceId: configuredId, devices };
     } catch (error) {
+      if (error instanceof AdbExecutableMissingError || error instanceof TelephonyConfigError) {
+        return {
+          status: 'adb_missing',
+          connected: false,
+          deviceId: configuredId || null,
+          devices: [],
+        };
+      }
       throw toHttpException(error);
     }
+  }
+
+  listRecentCalls(limit = 50): Promise<CallHistoryItem[]> {
+    return this.calls.listRecent(Math.min(Math.max(limit, 1), 100));
   }
 
   async placeCall(customerId: string): Promise<CallRecord> {
@@ -52,7 +92,7 @@ export class TelephonyService {
     }
 
     const phoneNumber = customer.phoneNumber.trim();
-    const deviceId = this.config.get<string>('ADB_DEVICE_ID')?.trim() || 'unconfigured';
+    const deviceId = this.settings.getDeviceId() || 'unconfigured';
 
     if (!phoneNumber) {
       await this.calls.create({
@@ -111,7 +151,7 @@ export class TelephonyService {
   }
 
   private requireAdbPath(): string {
-    const adbPath = this.config.get<string>('ADB_PATH')?.trim() ?? '';
+    const adbPath = this.settings.getAdbPath();
     if (!adbPath) {
       throw new TelephonyConfigError('ADB executable is not configured');
     }
@@ -119,7 +159,7 @@ export class TelephonyService {
   }
 
   private configuredDeviceId(): string {
-    const deviceId = this.config.get<string>('ADB_DEVICE_ID')?.trim() ?? '';
+    const deviceId = this.settings.getDeviceId();
     if (!deviceId) {
       throw new TelephonyConfigError('ADB device is not configured');
     }
