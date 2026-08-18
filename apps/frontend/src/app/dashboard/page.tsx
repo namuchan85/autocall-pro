@@ -42,6 +42,25 @@ interface CallHistoryItem {
   errorMessage: string | null;
 }
 
+interface ActiveCallResponse {
+  id: string;
+  customerId: string;
+  phoneNumber: string;
+  status: string;
+  provider: string;
+  deviceId: string;
+  errorMessage: string | null;
+  sessionId: string | null;
+  companionState: string | null;
+  observedActive: boolean;
+  startedAt: string | null;
+  endedAt: string | null;
+  durationSeconds: number | null;
+  attempt: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface DeviceStatus {
   status: 'connected' | 'unauthorized' | 'offline' | 'not_found' | 'not_configured' | 'adb_missing';
   connected: boolean;
@@ -128,6 +147,7 @@ export default function DashboardPage() {
   const [formSuccess, setFormSuccess] = useState('');
   const [callError, setCallError] = useState('');
   const [callSuccess, setCallSuccess] = useState('');
+  const [hangupBusy, setHangupBusy] = useState(false);
   const [callingId, setCallingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -145,7 +165,8 @@ export default function DashboardPage() {
   const [settingsMessage, setSettingsMessage] = useState('');
   const [companion, setCompanion] = useState<CompanionStatus | null>(null);
   const [autoCall, setAutoCall] = useState<AutoCallSnapshot | null>(null);
-  const [activeCallId, setActiveCallId] = useState<string | null>(null);
+  const [activeCall, setActiveCall] = useState<ActiveCallResponse | null>(null);
+  const [lastTerminalCall, setLastTerminalCall] = useState<ActiveCallResponse | null>(null);
   const [waitMs, setWaitMs] = useState(5000);
   const [ringMs, setRingMs] = useState(30000);
   const [maxCallMs, setMaxCallMs] = useState(60000);
@@ -156,6 +177,47 @@ export default function DashboardPage() {
   const canManage =
     user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
   const busy = saving || callingId !== null || deletingId !== null || Boolean(autoCall?.running);
+  const inProgressCallState =
+    activeCall?.status === 'DIALING' ||
+    activeCall?.status === 'RINGING' ||
+    activeCall?.status === 'ACTIVE';
+
+  const callStateForUI = (() => {
+    if (activeCall) {
+      return activeCall.status;
+    }
+    if (lastTerminalCall) {
+      return lastTerminalCall.status;
+    }
+    return 'IDLE';
+  })();
+
+  const sessionIdForUI = activeCall?.sessionId ?? lastTerminalCall?.sessionId ?? null;
+
+  const callErrorForUI = activeCall?.errorMessage ?? lastTerminalCall?.errorMessage ?? null;
+
+  const callStateUI = (() => {
+    const state = callStateForUI;
+    if (state === 'DIALING' || state === 'RINGING') {
+      return { className: 'bg-yellow-500/20 text-yellow-100', label: '진행 중(통화 연결 대기)' };
+    }
+    if (state === 'ACTIVE') {
+      return { className: 'bg-blue-500/20 text-blue-100', label: '통화 연결됨' };
+    }
+    if (state === 'DISCONNECTED') {
+      return {
+        className: 'bg-slate-500/20 text-slate-200',
+        label: '통화 종료',
+      };
+    }
+    if (state === 'FAILED') {
+      return { className: 'bg-red-500/20 text-red-100', label: '통화 실패' };
+    }
+    if (state === 'CANCELLED') {
+      return { className: 'bg-slate-500/20 text-slate-200', label: '통화 종료(중단)' };
+    }
+    return { className: 'bg-slate-700/20 text-slate-300', label: '대기' };
+  })();
 
   const loadCustomers = useCallback(async () => {
     const response = await authorizedFetch('/customers?limit=100');
@@ -195,11 +257,24 @@ export default function DashboardPage() {
   const loadActiveCall = useCallback(async () => {
     const response = await authorizedFetch('/telephony/active-call');
     if (!response.ok) {
-      setActiveCallId(null);
+      setActiveCall(null);
       return;
     }
-    const body = (await response.json()) as { id: string | null };
-    setActiveCallId(body.id);
+    const body = (await response.json()) as { id: string | null } | ActiveCallResponse;
+    if ('id' in body && body.id === null) {
+      setActiveCall(null);
+      return;
+    }
+
+    const call = body as ActiveCallResponse;
+    setActiveCall(call);
+
+    const terminalStatuses = ['DISCONNECTED', 'FAILED', 'CANCELLED'];
+    if (terminalStatuses.includes(call.status)) {
+      setLastTerminalCall(call);
+    } else {
+      setLastTerminalCall(null);
+    }
   }, []);
 
   const loadHistory = useCallback(async () => {
@@ -253,17 +328,29 @@ export default function DashboardPage() {
   ]);
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      void Promise.all([
-        loadCompanion(),
-        loadAutoCall(),
-        loadActiveCall(),
-        loadCustomers(),
-        loadHistory(),
-      ]);
-    }, 2000);
-    return () => window.clearInterval(timer);
+    const fast = window.setInterval(() => {
+      void Promise.all([loadAutoCall(), loadActiveCall(), loadHistory()]);
+    }, 1000);
+
+    const slow = window.setInterval(() => {
+      void Promise.all([loadCompanion(), loadCustomers()]);
+    }, 5000);
+
+    return () => {
+      window.clearInterval(fast);
+      window.clearInterval(slow);
+    };
   }, [loadCompanion, loadAutoCall, loadActiveCall, loadCustomers, loadHistory]);
+
+  useEffect(() => {
+    if (!lastTerminalCall) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setLastTerminalCall(null);
+    }, 8000);
+    return () => window.clearTimeout(timer);
+  }, [lastTerminalCall]);
 
   function resetForm(): void {
     setEditingId(null);
@@ -385,15 +472,36 @@ export default function DashboardPage() {
   }
 
   async function hangup(): Promise<void> {
-    setCallError('');
-    const response = await authorizedFetch('/telephony/hangup', { method: 'POST', body: '{}' });
-    if (!response.ok) {
-      const body: unknown = await response.json().catch(() => null);
-      setCallError(readApiError(body, '통화 종료에 실패했습니다.'));
+    if (hangupBusy) {
       return;
     }
-    setCallSuccess('통화 종료를 요청했습니다.');
-    await Promise.all([loadHistory(), loadActiveCall(), loadCompanion()]);
+    setHangupBusy(true);
+    try {
+      setCallError('');
+      const response = await authorizedFetch('/telephony/hangup', {
+        method: 'POST',
+        body: '{}',
+      });
+      if (!response.ok) {
+        const body: unknown = await response.json().catch(() => null);
+        setCallError(readApiError(body, '통화 종료에 실패했습니다.'));
+        return;
+      }
+      const body: unknown = await response.json().catch(() => null);
+      if (
+        body &&
+        typeof body === 'object' &&
+        'id' in body &&
+        (body as { id: unknown }).id === null
+      ) {
+        setCallError('종료할 활성 통화가 없습니다.');
+        return;
+      }
+      setCallSuccess('통화 종료를 요청했습니다.');
+      await Promise.all([loadHistory(), loadActiveCall(), loadCompanion()]);
+    } finally {
+      setHangupBusy(false);
+    }
   }
 
   async function recordOutcome(
@@ -536,8 +644,15 @@ export default function DashboardPage() {
             </li>
             <li>Companion: {companion?.labels.companion ?? 'Not installed'}</li>
             <li>Phone Control: {companion?.labels.phoneControl ?? 'Not installed'}</li>
-            <li>Call state: {companion?.companion.callState ?? 'UNKNOWN'}</li>
+            <li>
+              현재 통화:{' '}
+              <span className={`rounded px-2 py-0.5 ${callStateUI.className}`}>
+                {callStateUI.label}
+              </span>
+            </li>
             {companion?.companion.version ? <li>Version: {companion.companion.version}</li> : null}
+            {sessionIdForUI ? <li>Session: {sessionIdForUI}</li> : null}
+            {callErrorForUI ? <li className="text-red-400">통화 오류: {callErrorForUI}</li> : null}
             {companion?.companion.lastError ? (
               <li className="text-red-400">{companion.companion.lastError}</li>
             ) : null}
@@ -557,12 +672,12 @@ export default function DashboardPage() {
               ))}
             </ul>
           ) : null}
-          {canManage ? (
+          {canManage && inProgressCallState ? (
             <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
                 className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
-                disabled={busy || !activeCallId}
+                disabled={busy || hangupBusy}
                 onClick={() => {
                   void hangup();
                 }}

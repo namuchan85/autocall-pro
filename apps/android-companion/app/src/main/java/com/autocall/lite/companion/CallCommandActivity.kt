@@ -6,10 +6,12 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
 import android.telecom.TelecomManager
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 
 class CallCommandActivity : AppCompatActivity() {
+    private val logTag = "AutoCallCompanion"
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         StatusStore.refreshDefaultDialer(this)
@@ -25,7 +27,10 @@ class CallCommandActivity : AppCompatActivity() {
         }
         when (command) {
             CompanionCommands.PING -> StatusStore.setError("")
-            CompanionCommands.HANGUP -> StatusStore.disconnectAll()
+            CompanionCommands.HANGUP -> {
+                Log.d(logTag, "HANGUP cmd sessionLen=${StatusStore.sessionId.length}")
+                StatusStore.disconnectAll()
+            }
             CompanionCommands.DIAL -> dial(intent.getStringExtra("tel"), intent.getStringExtra("session"))
         }
     }
@@ -35,6 +40,7 @@ class CallCommandActivity : AppCompatActivity() {
             StatusStore.setError("invalid phone number")
             return
         }
+        Log.d(logTag, "DIAL cmd sessionEmpty=${sessionId.isNullOrEmpty()} sessionLen=${sessionId?.length ?: 0}")
         StatusStore.setSession(sessionId)
         StatusStore.setError("")
         val uri = Uri.fromParts("tel", phoneNumber, null)

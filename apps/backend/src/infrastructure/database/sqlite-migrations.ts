@@ -30,6 +30,11 @@ export const DESKTOP_V2_MIGRATION: Omit<SqliteMigration, 'statements'> = {
   name: 'desktop_v2_companion',
 };
 
+export const DESKTOP_V3_MIGRATION: Omit<SqliteMigration, 'statements'> = {
+  version: '3',
+  name: 'desktop_v3_companion_call_lifecycle',
+};
+
 export function splitSqliteMigrationStatements(sql: string): string[] {
   return sql
     .replace(/^\s*--.*$/gm, '')
@@ -52,8 +57,15 @@ export function loadDesktopV2Migration(): SqliteMigration {
   };
 }
 
+export function loadDesktopV3Migration(): SqliteMigration {
+  return {
+    ...DESKTOP_V3_MIGRATION,
+    statements: splitSqliteMigrationStatements(readFileSync(resolveMigrationSql('v3'), 'utf8')),
+  };
+}
+
 export function loadDesktopMigrations(): SqliteMigration[] {
-  return [loadDesktopV1Migration(), loadDesktopV2Migration()];
+  return [loadDesktopV1Migration(), loadDesktopV2Migration(), loadDesktopV3Migration()];
 }
 
 export async function applySqliteFileMigrations(
@@ -141,7 +153,7 @@ function escapeSqlLiteral(value: string): string {
   return value.replaceAll("'", "''");
 }
 
-function resolveMigrationSql(version: 'v1' | 'v2'): string {
+function resolveMigrationSql(version: 'v1' | 'v2' | 'v3'): string {
   const files =
     version === 'v1'
       ? [
@@ -162,24 +174,43 @@ function resolveMigrationSql(version: 'v1' | 'v2'): string {
             'backend/prisma/migrations/20260816090000_desktop_v1_sqlite/migration.sql',
           ),
         ]
-      : [
-          path.join(
-            __dirname,
-            '../../../prisma/migrations/20260818120000_desktop_v2_companion/migration.sql',
-          ),
-          path.join(
-            process.cwd(),
-            'prisma/migrations/20260818120000_desktop_v2_companion/migration.sql',
-          ),
-          path.join(
-            process.cwd(),
-            'apps/backend/prisma/migrations/20260818120000_desktop_v2_companion/migration.sql',
-          ),
-          path.join(
-            process.cwd(),
-            'backend/prisma/migrations/20260818120000_desktop_v2_companion/migration.sql',
-          ),
-        ];
+      : version === 'v2'
+        ? [
+            path.join(
+              __dirname,
+              '../../../prisma/migrations/20260818120000_desktop_v2_companion/migration.sql',
+            ),
+            path.join(
+              process.cwd(),
+              'prisma/migrations/20260818120000_desktop_v2_companion/migration.sql',
+            ),
+            path.join(
+              process.cwd(),
+              'apps/backend/prisma/migrations/20260818120000_desktop_v2_companion/migration.sql',
+            ),
+            path.join(
+              process.cwd(),
+              'backend/prisma/migrations/20260818120000_desktop_v2_companion/migration.sql',
+            ),
+          ]
+        : [
+            path.join(
+              __dirname,
+              '../../../prisma/migrations/20260818170000_desktop_v3_call_lifecycle/migration.sql',
+            ),
+            path.join(
+              process.cwd(),
+              'prisma/migrations/20260818170000_desktop_v3_call_lifecycle/migration.sql',
+            ),
+            path.join(
+              process.cwd(),
+              'apps/backend/prisma/migrations/20260818170000_desktop_v3_call_lifecycle/migration.sql',
+            ),
+            path.join(
+              process.cwd(),
+              'backend/prisma/migrations/20260818170000_desktop_v3_call_lifecycle/migration.sql',
+            ),
+          ];
   const found = files.find((candidate) => existsSync(candidate));
   if (!found) {
     throw new Error('SQLite migration file was not found');

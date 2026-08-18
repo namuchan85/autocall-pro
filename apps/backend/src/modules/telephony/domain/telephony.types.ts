@@ -33,8 +33,11 @@ export interface CallRecord {
   companionState: string | null;
   observedActive: boolean;
   startedAt: Date | null;
+  answeredAt: Date | null;
   endedAt: Date | null;
   durationSeconds: number | null;
+  disconnectSource: string | null;
+  disconnectCause: string | null;
   attempt: number;
   createdAt: Date;
   updatedAt: Date;
@@ -51,8 +54,11 @@ export interface NewCall {
   companionState?: string | null;
   observedActive?: boolean;
   startedAt?: Date | null;
+  answeredAt?: Date | null;
   endedAt?: Date | null;
   durationSeconds?: number | null;
+  disconnectSource?: string | null;
+  disconnectCause?: string | null;
   attempt?: number;
 }
 
@@ -64,8 +70,11 @@ export interface CallStatusPatch {
   companionState?: string | null;
   observedActive?: boolean;
   startedAt?: Date | null;
+  answeredAt?: Date | null;
   endedAt?: Date | null;
   durationSeconds?: number | null;
+  disconnectSource?: string | null;
+  disconnectCause?: string | null;
   attempt?: number;
 }
 
@@ -105,8 +114,11 @@ export function emptyCallTracking(): Pick<
   | 'companionState'
   | 'observedActive'
   | 'startedAt'
+  | 'answeredAt'
   | 'endedAt'
   | 'durationSeconds'
+  | 'disconnectSource'
+  | 'disconnectCause'
   | 'attempt'
 > {
   return {
@@ -114,8 +126,11 @@ export function emptyCallTracking(): Pick<
     companionState: null,
     observedActive: false,
     startedAt: null,
+    answeredAt: null,
     endedAt: null,
     durationSeconds: null,
+    disconnectSource: null,
+    disconnectCause: null,
     attempt: 1,
   };
 }

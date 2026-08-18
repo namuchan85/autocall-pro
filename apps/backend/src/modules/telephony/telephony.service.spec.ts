@@ -52,8 +52,11 @@ function createCall(overrides: Partial<CallRecord> = {}): CallRecord {
     companionState: null,
     observedActive: false,
     startedAt: null,
+    answeredAt: null,
     endedAt: null,
     durationSeconds: null,
+    disconnectSource: null,
+    disconnectCause: null,
     attempt: 1,
     createdAt: now,
     updatedAt: now,
@@ -358,5 +361,394 @@ describe('TelephonyService', () => {
 
     await service.placeCall(CUSTOMER_ID);
     await expect(service.placeCall(CUSTOMER_ID)).rejects.toBeInstanceOf(ConflictException);
+  });
+
+  describe('syncActiveCall (Companion lifecycle)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('sets answeredAt when ACTIVE is observed the first time', async () => {
+      jest.setSystemTime(new Date('2026-08-15T00:00:00.000Z'));
+
+      const requested = createCall({
+        provider: 'COMPANION',
+        status: 'REQUESTED',
+        sessionId: 'sess-1',
+      });
+      const dialing = createCall({
+        provider: 'COMPANION',
+        status: 'DIALING',
+        companionState: 'DIALING',
+        sessionId: 'sess-1',
+      });
+
+      const { service, updateStatus } = createService({
+        calls: {
+          create: jest.fn().mockResolvedValue(requested),
+          updateStatus: jest.fn().mockResolvedValue(dialing),
+        },
+        companion: {
+          getHealth: jest.fn().mockResolvedValue({
+            ...missingCompanionHealth(),
+            installed: true,
+            companion: 'installed',
+            phoneControl: 'ready',
+            defaultDialer: true,
+          }),
+          sendCommand: jest.fn().mockResolvedValue(undefined),
+          readStatus: jest.fn().mockResolvedValue({
+            installed: true,
+            version: '1.0.2',
+            defaultDialer: true,
+            callState: 'ACTIVE',
+            sessionId: 'sess-1',
+            lastError: null,
+          }),
+        },
+      });
+
+      // Place call to set service.activeCall to dialing.
+      await service.placeCall(CUSTOMER_ID);
+
+      jest.setSystemTime(new Date('2026-08-15T00:00:05.000Z'));
+
+      await service.syncActiveCall();
+
+      expect(updateStatus).toHaveBeenCalledWith(
+        dialing.id,
+        expect.objectContaining({
+          status: 'ACTIVE',
+          companionState: 'ACTIVE',
+          observedActive: true,
+          answeredAt: new Date('2026-08-15T00:00:05.000Z'),
+        }),
+      );
+    });
+
+    it('finalizes endedAt/durationSeconds on DISCONNECTED (and is idempotent)', async () => {
+      jest.setSystemTime(new Date('2026-08-15T00:00:00.000Z'));
+
+      const active = createCall({
+        provider: 'COMPANION',
+        status: 'ACTIVE',
+        companionState: 'ACTIVE',
+        sessionId: 'sess-1',
+        observedActive: true,
+        answeredAt: new Date('2026-08-15T00:00:01.000Z'),
+        startedAt: new Date('2026-08-15T00:00:00.000Z'),
+      });
+
+      const updateStatus = jest.fn().mockResolvedValue({
+        ...active,
+        status: 'DISCONNECTED',
+      });
+
+      const { service } = createService({
+        calls: {
+          updateStatus,
+        },
+        companion: {
+          getHealth: jest.fn().mockResolvedValue({
+            ...missingCompanionHealth(),
+            installed: true,
+            companion: 'installed',
+            phoneControl: 'ready',
+            defaultDialer: true,
+          }),
+          readStatus: jest.fn().mockResolvedValue({
+            installed: true,
+            version: '1.0.2',
+            defaultDialer: true,
+            callState: 'DISCONNECTED',
+            sessionId: 'sess-1',
+            lastError: null,
+          }),
+        },
+      });
+
+      // Force activeCall (private) for this unit test.
+      (service as unknown as { activeCall: CallRecord }).activeCall = active;
+
+      jest.setSystemTime(new Date('2026-08-15T00:00:10.000Z'));
+      await service.syncActiveCall();
+
+      expect(updateStatus).toHaveBeenCalledWith(
+        active.id,
+        expect.objectContaining({
+          status: 'DISCONNECTED',
+          companionState: 'DISCONNECTED',
+          endedAt: new Date('2026-08-15T00:00:10.000Z'),
+          durationSeconds: 10,
+          disconnectSource: 'COMPANION',
+        }),
+      );
+
+      // Second call should not update again because status is terminal.
+      await service.syncActiveCall();
+      expect(updateStatus).toHaveBeenCalledTimes(1);
+    });
+
+    it('records session mismatch as errorMessage', async () => {
+      const active = createCall({
+        provider: 'COMPANION',
+        status: 'ACTIVE',
+        companionState: 'ACTIVE',
+        sessionId: 'sess-1',
+        startedAt: new Date('2026-08-15T00:00:00.000Z'),
+        observedActive: false,
+      });
+
+      const updateStatus = jest.fn().mockResolvedValue({
+        ...active,
+        status: 'ACTIVE',
+      });
+
+      const { service } = createService({
+        calls: { updateStatus },
+        companion: {
+          getHealth: jest.fn().mockResolvedValue({
+            ...missingCompanionHealth(),
+            installed: true,
+            companion: 'installed',
+            phoneControl: 'ready',
+            defaultDialer: true,
+          }),
+          readStatus: jest.fn().mockResolvedValue({
+            installed: true,
+            version: '1.0.2',
+            defaultDialer: true,
+            callState: 'ACTIVE',
+            sessionId: 'sess-2',
+            lastError: null,
+          }),
+        },
+      });
+
+      (service as unknown as { activeCall: CallRecord }).activeCall = active;
+      await service.syncActiveCall();
+
+      expect(updateStatus).toHaveBeenCalledWith(
+        active.id,
+        expect.objectContaining({
+          errorMessage: 'Companion sessionId mismatch',
+        }),
+      );
+    });
+
+    it('sets DIALING state when companion reports DIALING', async () => {
+      jest.setSystemTime(new Date('2026-08-15T00:00:00.000Z'));
+
+      const active = createCall({
+        provider: 'COMPANION',
+        status: 'REQUESTED',
+        companionState: null,
+        sessionId: 'sess-1',
+        startedAt: new Date('2026-08-15T00:00:00.000Z'),
+        observedActive: false,
+      });
+
+      const updateStatus = jest.fn().mockResolvedValue({
+        ...active,
+        status: 'DIALING',
+      });
+
+      const { service } = createService({
+        calls: { updateStatus },
+        companion: {
+          getHealth: jest.fn().mockResolvedValue({
+            ...missingCompanionHealth(),
+            installed: true,
+            companion: 'installed',
+            phoneControl: 'ready',
+            defaultDialer: true,
+          }),
+          readStatus: jest.fn().mockResolvedValue({
+            installed: true,
+            version: '1.0.2',
+            defaultDialer: true,
+            callState: 'DIALING',
+            sessionId: 'sess-1',
+            lastError: null,
+          }),
+        },
+      });
+
+      (service as unknown as { activeCall: CallRecord }).activeCall = active;
+      await service.syncActiveCall();
+
+      expect(updateStatus).toHaveBeenCalledWith(
+        active.id,
+        expect.objectContaining({
+          status: 'DIALING',
+          companionState: 'DIALING',
+          observedActive: false,
+        }),
+      );
+    });
+
+    it('records missing sessionId as errorMessage', async () => {
+      const active = createCall({
+        provider: 'COMPANION',
+        status: 'ACTIVE',
+        companionState: 'ACTIVE',
+        sessionId: 'sess-1',
+        startedAt: new Date('2026-08-15T00:00:00.000Z'),
+        observedActive: false,
+      });
+
+      const updateStatus = jest.fn().mockResolvedValue({
+        ...active,
+        status: 'ACTIVE',
+      });
+
+      const { service } = createService({
+        calls: { updateStatus },
+        companion: {
+          getHealth: jest.fn().mockResolvedValue({
+            ...missingCompanionHealth(),
+            installed: true,
+            companion: 'installed',
+            phoneControl: 'ready',
+            defaultDialer: true,
+          }),
+          readStatus: jest.fn().mockResolvedValue({
+            installed: true,
+            version: '1.0.2',
+            defaultDialer: true,
+            callState: 'ACTIVE',
+            sessionId: null,
+            lastError: null,
+          }),
+        },
+      });
+
+      (service as unknown as { activeCall: CallRecord }).activeCall = active;
+      await service.syncActiveCall();
+
+      expect(updateStatus).toHaveBeenCalledWith(
+        active.id,
+        expect.objectContaining({
+          errorMessage: 'Companion sessionId is missing',
+        }),
+      );
+    });
+  });
+
+  describe('hangup (Companion)', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('waits for DISCONNECTED and marks disconnectSource=USER', async () => {
+      jest.setSystemTime(new Date('2026-08-15T00:00:00.000Z'));
+
+      const active: CallRecord = {
+        ...createCall({
+          provider: 'COMPANION',
+          status: 'ACTIVE',
+          companionState: 'ACTIVE',
+          sessionId: 'sess-1',
+          startedAt: new Date('2026-08-15T00:00:00.000Z'),
+          observedActive: true,
+          answeredAt: new Date('2026-08-15T00:00:00.000Z'),
+        }),
+      };
+
+      const updateStatus = jest.fn().mockResolvedValue({
+        ...active,
+        status: 'DISCONNECTED',
+      });
+
+      const { service } = createService({
+        calls: { updateStatus },
+        companion: {
+          getHealth: jest.fn().mockResolvedValue({
+            ...missingCompanionHealth(),
+            installed: true,
+            companion: 'installed',
+            phoneControl: 'ready',
+            defaultDialer: true,
+          }),
+          sendCommand: jest.fn().mockResolvedValue(undefined),
+          readStatus: jest.fn().mockResolvedValue({
+            installed: true,
+            version: '1.0.2',
+            defaultDialer: true,
+            callState: 'DISCONNECTED',
+            sessionId: 'sess-1',
+            lastError: null,
+          }),
+        },
+      });
+
+      (service as unknown as { activeCall: CallRecord }).activeCall = active;
+
+      jest.setSystemTime(new Date('2026-08-15T00:00:10.000Z'));
+      const result = await service.hangup();
+
+      expect(result?.status).toBe('DISCONNECTED');
+      expect(updateStatus).toHaveBeenCalledWith(
+        active.id,
+        expect.objectContaining({
+          status: 'DISCONNECTED',
+          disconnectSource: 'USER',
+        }),
+      );
+    });
+
+    it('returns null when there is no active call', async () => {
+      const { service } = createService({
+        calls: {},
+        companion: {
+          getHealth: jest.fn().mockResolvedValue({
+            ...missingCompanionHealth(),
+            installed: true,
+            companion: 'installed',
+            phoneControl: 'ready',
+            defaultDialer: true,
+          }),
+        },
+      });
+      (service as unknown as { activeCall: CallRecord | null }).activeCall = null;
+      await expect(service.hangup()).resolves.toBeNull();
+    });
+
+    it('throws when Companion is not default dialer', async () => {
+      jest.setSystemTime(new Date('2026-08-15T00:00:00.000Z'));
+
+      const active = createCall({
+        provider: 'COMPANION',
+        status: 'ACTIVE',
+        companionState: 'ACTIVE',
+        sessionId: 'sess-1',
+        startedAt: new Date('2026-08-15T00:00:00.000Z'),
+        observedActive: true,
+      });
+
+      const { service } = createService({
+        calls: { updateStatus: jest.fn() },
+        companion: {
+          getHealth: jest.fn().mockResolvedValue({
+            ...missingCompanionHealth(),
+            installed: true,
+            companion: 'installed',
+            phoneControl: 'permission_required',
+            defaultDialer: false,
+          }),
+          sendCommand: jest.fn(),
+        },
+      });
+
+      (service as unknown as { activeCall: CallRecord }).activeCall = active;
+      await expect(service.hangup()).rejects.toBeInstanceOf(ServiceUnavailableException);
+    });
   });
 });

@@ -5,6 +5,7 @@ import {
   ConflictException,
   ForbiddenException,
   Inject,
+  Logger,
   Injectable,
   NotFoundException,
   ServiceUnavailableException,
@@ -47,6 +48,9 @@ import type { CompanionDashboardStatus, CompanionHealth } from './companion/comp
 export class TelephonyService {
   private placing = false;
   private activeCall: CallRecord | null = null;
+  private hangupRequestedSessionId: string | null = null;
+  private hangupRequestedAt: number | null = null;
+  private readonly logger = new Logger(TelephonyService.name);
 
   constructor(
     @Inject(ADB_RUNTIME_SETTINGS) private readonly settings: AdbRuntimeSettings,
@@ -276,9 +280,16 @@ export class TelephonyService {
         return null;
       }
 
-      const ended = await this.finishCall(active, 'CANCELLED', 'UNKNOWN');
-      this.activeCall = ended;
-      return ended;
+      // Wait for the real companion lifecycle transition.
+      // We do not force-cancel here to avoid losing DISCONNECTED observation.
+      this.hangupRequestedSessionId = active.sessionId ?? null;
+      this.hangupRequestedAt = Date.now();
+
+      const synced = await this.syncActiveCall();
+      if (synced) {
+        this.activeCall = synced;
+      }
+      return synced;
     } catch (error) {
       throw toHttpException(error);
     }
@@ -297,18 +308,65 @@ export class TelephonyService {
     if (!status) {
       return active;
     }
+
+    const companionSessionId = status.sessionId ?? null;
+    let sessionError: string | null = null;
+    if (!companionSessionId) {
+      sessionError = 'Companion sessionId is missing';
+    } else if (active.sessionId && companionSessionId !== active.sessionId) {
+      sessionError = 'Companion sessionId mismatch';
+    }
+
     const nextStatus = callStatusFromCompanion(status.callState, active.status);
-    const observedActive = active.observedActive || status.callState === 'ACTIVE';
-    const ended =
-      status.callState === 'DISCONNECTED' || status.callState === 'IDLE'
-        ? new Date()
-        : active.endedAt;
+    const becameActive = !active.observedActive && status.callState === 'ACTIVE';
+    const observedActive = active.observedActive || becameActive;
+    const answeredAt = becameActive ? (active.answeredAt ?? new Date()) : active.answeredAt;
+
+    const isEnded = status.callState === 'DISCONNECTED' || status.callState === 'IDLE';
+    const endedAt = isEnded ? new Date() : active.endedAt;
+
+    const disconnectSource =
+      isEnded &&
+      active.sessionId &&
+      this.hangupRequestedSessionId &&
+      this.hangupRequestedSessionId === active.sessionId &&
+      this.hangupRequestedAt &&
+      Date.now() - this.hangupRequestedAt < 15_000
+        ? 'USER'
+        : isEnded
+          ? 'COMPANION'
+          : active.disconnectSource;
+
+    if (isEnded) {
+      this.hangupRequestedSessionId = null;
+      this.hangupRequestedAt = null;
+    }
+
+    const errorMessage =
+      status.lastError && status.lastError.trim().length > 0
+        ? status.lastError
+        : sessionError
+          ? sessionError
+          : undefined;
+
+    this.logger.debug(
+      `COMPANION_CALL_STATE callId=${active.id} next=${nextStatus} companionState=${status.callState} observedActive=${observedActive} sessionPresent=${companionSessionId ? 'yes' : 'no'}`,
+    );
+    if (isEnded) {
+      this.logger.debug(
+        `COMPANION_CALL_FINAL callId=${active.id} endedAt=${endedAt?.toISOString()} durationSeconds=${durationSeconds(active.startedAt, endedAt)} disconnectSource=${disconnectSource}`,
+      );
+    }
+
     const updated = await this.calls.updateStatus(active.id, {
       status: nextStatus,
       companionState: status.callState,
       observedActive,
-      endedAt: ended,
-      durationSeconds: durationSeconds(active.startedAt, ended),
+      answeredAt,
+      endedAt,
+      durationSeconds: durationSeconds(active.startedAt, endedAt),
+      disconnectSource,
+      errorMessage,
     });
     this.activeCall = updated;
     return updated;
@@ -336,21 +394,6 @@ export class TelephonyService {
     } catch (error) {
       throw toHttpException(error);
     }
-  }
-
-  private async finishCall(
-    call: CallRecord,
-    status: CallStatus,
-    companionState: CompanionCallState | null,
-  ): Promise<CallRecord> {
-    const endedAt = new Date();
-    const updated = await this.calls.updateStatus(call.id, {
-      status,
-      companionState,
-      endedAt,
-      durationSeconds: durationSeconds(call.startedAt, endedAt),
-    });
-    return updated ?? call;
   }
 
   private requireAdbPath(): string {

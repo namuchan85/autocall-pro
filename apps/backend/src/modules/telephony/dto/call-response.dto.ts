@@ -70,8 +70,17 @@ export class CallResponseDto {
   @ApiPropertyOptional({ nullable: true, type: String, format: 'date-time' })
   endedAt!: string | null;
 
+  @ApiPropertyOptional({ nullable: true, type: String, format: 'date-time' })
+  answeredAt!: string | null;
+
   @ApiPropertyOptional({ nullable: true, type: Number })
   durationSeconds!: number | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  disconnectSource!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  disconnectCause!: string | null;
 
   @ApiProperty()
   attempt!: number;
@@ -96,7 +105,10 @@ export class CallResponseDto {
       observedActive: record.observedActive,
       startedAt: record.startedAt?.toISOString() ?? null,
       endedAt: record.endedAt?.toISOString() ?? null,
+      answeredAt: record.answeredAt?.toISOString() ?? null,
       durationSeconds: record.durationSeconds,
+      disconnectSource: record.disconnectSource,
+      disconnectCause: record.disconnectCause,
       attempt: record.attempt,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),

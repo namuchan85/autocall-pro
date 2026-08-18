@@ -102,6 +102,7 @@ describe('applySqliteMigrations', () => {
     expect(client.executed.some((item) => item === 'COMMIT')).toBe(true);
     expect(client.versions.has('1')).toBe(true);
     expect(client.versions.has('2')).toBe(true);
+    expect(client.versions.has('3')).toBe(true);
     expect(client.executed.some((item) => item.includes('lastOutcome'))).toBe(true);
   });
 
@@ -109,6 +110,7 @@ describe('applySqliteMigrations', () => {
     const client = createMockClient();
     client.versions.add('1');
     client.versions.add('2');
+    client.versions.add('3');
 
     await applySqliteMigrations(client);
 
@@ -147,6 +149,7 @@ describe('applySqliteMigrations', () => {
     ).toBe(true);
     expect(client.versions.has('1')).toBe(true);
     expect(client.versions.has('2')).toBe(true);
+    expect(client.versions.has('3')).toBe(true);
   });
 
   it('applies later migrations after version 1 is recorded', async () => {
@@ -160,6 +163,7 @@ describe('applySqliteMigrations', () => {
     ).toBe(false);
     expect(client.executed.some((item) => item.includes('lastOutcome'))).toBe(true);
     expect(client.versions.has('2')).toBe(true);
+    expect(client.versions.has('3')).toBe(true);
   });
 });
 
@@ -185,7 +189,7 @@ describe('applySqliteFileMigrations', () => {
           expect.arrayContaining(['_schema_migrations', 'users', 'customers', 'calls']),
         );
         const versions = await libsql.execute('SELECT version, name FROM _schema_migrations');
-        expect(versions.rows.map((row) => rowText(row.version))).toEqual(['1', '2']);
+        expect(versions.rows.map((row) => rowText(row.version))).toEqual(['1', '2', '3']);
       } finally {
         libsql.close();
       }
@@ -194,7 +198,7 @@ describe('applySqliteFileMigrations', () => {
       const again = createLibsqlClient({ url: toLibsqlFileUrl(databaseUrl) });
       try {
         const versions = await again.execute('SELECT version FROM _schema_migrations');
-        expect(versions.rows).toHaveLength(2);
+        expect(versions.rows).toHaveLength(3);
       } finally {
         again.close();
       }
@@ -228,7 +232,7 @@ describe('applySqliteFileMigrations', () => {
         );
         expect(tables.rows).toHaveLength(0);
         const versions = await libsql.execute('SELECT version FROM _schema_migrations');
-        expect(versions.rows.map((row) => rowText(row.version))).toEqual(['1', '2']);
+        expect(versions.rows.map((row) => rowText(row.version))).toEqual(['1', '2', '3']);
       } finally {
         libsql.close();
       }

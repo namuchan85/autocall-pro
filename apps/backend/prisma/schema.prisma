@@ -97,8 +97,11 @@ model Call {
   companionState  String?
   observedActive  Boolean      @default(false)
   startedAt       DateTime?
+  answeredAt      DateTime?
   endedAt         DateTime?
   durationSeconds Int?
+  disconnectSource String?
+  disconnectCause  String?
   attempt         Int          @default(1)
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt

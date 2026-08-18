@@ -62,9 +62,8 @@ export class TelephonyController {
     if (!active) {
       return { id: null };
     }
-    await this.telephony.syncActiveCall();
-    const synced = this.telephony.getActiveCall() ?? active;
-    return CallResponseDto.fromRecord(synced);
+    const synced = await this.telephony.syncActiveCall();
+    return CallResponseDto.fromRecord(synced ?? active);
   }
 
   @Post('call')

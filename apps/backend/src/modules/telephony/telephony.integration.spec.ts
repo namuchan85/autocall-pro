@@ -105,8 +105,11 @@ class MemoryCallRepository implements CallRepository {
       companionState: input.companionState ?? null,
       observedActive: input.observedActive ?? false,
       startedAt: input.startedAt ?? null,
+      answeredAt: input.answeredAt ?? null,
       endedAt: input.endedAt ?? null,
       durationSeconds: input.durationSeconds ?? null,
+      disconnectSource: input.disconnectSource ?? null,
+      disconnectCause: input.disconnectCause ?? null,
       attempt: input.attempt ?? 1,
       createdAt: now,
       updatedAt: now,
@@ -141,11 +144,20 @@ class MemoryCallRepository implements CallRepository {
     if (patch.startedAt !== undefined) {
       current.startedAt = patch.startedAt;
     }
+    if (patch.answeredAt !== undefined) {
+      current.answeredAt = patch.answeredAt;
+    }
     if (patch.endedAt !== undefined) {
       current.endedAt = patch.endedAt;
     }
     if (patch.durationSeconds !== undefined) {
       current.durationSeconds = patch.durationSeconds;
+    }
+    if (patch.disconnectSource !== undefined) {
+      current.disconnectSource = patch.disconnectSource;
+    }
+    if (patch.disconnectCause !== undefined) {
+      current.disconnectCause = patch.disconnectCause;
     }
     if (patch.attempt !== undefined) {
       current.attempt = patch.attempt;
