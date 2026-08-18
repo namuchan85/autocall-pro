@@ -25,6 +25,8 @@ import type { AuthenticatedUser } from './domain/auth.types';
 import { Roles } from './decorators/roles.decorator';
 import { AuthResponseDto, AuthUserDto } from './dto/auth-response.dto';
 import { LoginDto } from './dto/login.dto';
+import { SetupAdminDto } from './dto/setup-admin.dto';
+import { SetupStatusDto } from './dto/setup-status.dto';
 import { Role } from '../../generated/prisma/enums';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LoginRateLimitGuard } from './guards/login-rate-limit.guard';
@@ -39,6 +41,21 @@ export class AuthController {
     private readonly authService: AuthService,
     private readonly config: ConfigService,
   ) {}
+
+  @Get('setup-status')
+  @ApiOkResponse({ type: SetupStatusDto })
+  async setupStatus(): Promise<SetupStatusDto> {
+    return { needsSetup: await this.authService.needsSetup() };
+  }
+
+  @Post('setup')
+  @HttpCode(200)
+  @UseGuards(LoginRateLimitGuard)
+  @ApiOkResponse({ schema: { example: { status: 'ok' } } })
+  async setup(@Body() input: SetupAdminDto): Promise<{ status: 'ok' }> {
+    await this.authService.setupAdministrator(input.password, input.confirmPassword);
+    return { status: 'ok' };
+  }
 
   @Post('login')
   @HttpCode(200)

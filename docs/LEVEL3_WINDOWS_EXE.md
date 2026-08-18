@@ -1,6 +1,8 @@
 # AutoCall Lite Level 3 Architecture Review
 
-상태: 설계만. 이 문서 작성 시점에 코드·스키마·의존성·EXE 빌드는 변경하지 않는다.
+상태: 설계 문서. **구현은 Desktop v1에서 완료**되었으며 현재 동작은 `docs/DESKTOP_V1.md`와 `docs/AUTOCALL_LITE.md`를 따른다.
+
+이 문서는 Level 3 착수 전의 비교·위험 분석이다. SQLite 전환, Redis 제거, Electron installer는 당시 “아직 하지 말 것”으로 적혀 있으나, Desktop v1 Sprint에서 의도적으로 수행했다.
 
 근거 커밋: `main` `0cd37c9` (Level 2 ADB Galaxy 발신 포함).
 

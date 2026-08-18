@@ -28,6 +28,7 @@ import { CustomersService } from './customers.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { CustomerListResponseDto, CustomerResponseDto } from './dto/customer-response.dto';
 import { ListCustomersQueryDto } from './dto/list-customers-query.dto';
+import { RecordCustomerOutcomeDto } from './dto/record-outcome.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 
 @ApiTags('customers')
@@ -71,6 +72,17 @@ export class CustomersController {
   @ApiNotFoundResponse({ description: 'Customer not found' })
   async getById(@Param('id', ParseUUIDPipe) id: string): Promise<CustomerResponseDto> {
     return CustomerResponseDto.fromRecord(await this.customers.getById(id));
+  }
+
+  @Post(':id/outcome')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER)
+  @ApiOkResponse({ type: CustomerResponseDto })
+  @ApiNotFoundResponse({ description: 'Customer not found' })
+  async recordOutcome(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() input: RecordCustomerOutcomeDto,
+  ): Promise<CustomerResponseDto> {
+    return CustomerResponseDto.fromRecord(await this.customers.recordOutcome(id, input.outcome));
   }
 
   @Patch(':id')

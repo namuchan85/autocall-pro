@@ -1,6 +1,20 @@
 export const CUSTOMER_STATUSES = ['ACTIVE', 'INACTIVE', 'BLOCKED'] as const;
 export type CustomerStatus = (typeof CUSTOMER_STATUSES)[number];
 
+export const CUSTOMER_OUTCOMES = [
+  'SMS_REQUESTED',
+  'NOT_INTERESTED',
+  'DO_NOT_CALL',
+  'CALL_AGAIN',
+] as const;
+export type CustomerOutcome = (typeof CUSTOMER_OUTCOMES)[number];
+
+export interface LatestCallSummary {
+  status: string;
+  provider: string;
+  observedActive: boolean;
+}
+
 export interface CustomerRecord {
   id: string;
   customerCode: string;
@@ -10,6 +24,8 @@ export interface CustomerRecord {
   memo: string | null;
   status: CustomerStatus;
   doNotCall: boolean;
+  lastOutcome: CustomerOutcome | null;
+  latestCall: LatestCallSummary | null;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
@@ -33,6 +49,7 @@ export interface CustomerPatch {
   memo?: string | null;
   status?: CustomerStatus;
   doNotCall?: boolean;
+  lastOutcome?: CustomerOutcome | null;
 }
 
 export interface CustomerListQuery {

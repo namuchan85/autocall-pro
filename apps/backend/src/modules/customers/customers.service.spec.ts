@@ -20,6 +20,8 @@ function createRecord(overrides: Partial<CustomerRecord> = {}): CustomerRecord {
     memo: null,
     status: 'ACTIVE',
     doNotCall: false,
+    lastOutcome: null,
+    latestCall: null,
     deletedAt: null,
     createdAt: now,
     updatedAt: now,
@@ -138,5 +140,19 @@ describe('CustomersService', () => {
     await expect(
       new CustomersService(repository).update('11111111-1111-4111-8111-111111111111', patch),
     ).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it('records 수신거부 as doNotCall and lastOutcome', async () => {
+    const record = createRecord({ doNotCall: true, lastOutcome: 'DO_NOT_CALL' });
+    const update = jest.fn().mockResolvedValue(record);
+    const repository = createRepository({ update });
+
+    await expect(
+      new CustomersService(repository).recordOutcome(record.id, 'DO_NOT_CALL'),
+    ).resolves.toEqual(record);
+    expect(update).toHaveBeenCalledWith(record.id, {
+      lastOutcome: 'DO_NOT_CALL',
+      doNotCall: true,
+    });
   });
 });

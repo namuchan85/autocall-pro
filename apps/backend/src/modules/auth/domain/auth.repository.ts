@@ -9,9 +9,16 @@ export interface NewRefreshToken {
   expiresAt: Date;
 }
 
+export interface NewLocalAdmin {
+  email: string;
+  passwordHash: string;
+  name: string;
+}
+
 export interface AuthRepository {
   findUserByEmail(email: string): Promise<AuthUserRecord | null>;
   findActiveUserById(id: string): Promise<AuthenticatedUser | null>;
+  createLocalAdmin(input: NewLocalAdmin): Promise<void>;
   findRefreshTokenById(id: string): Promise<StoredRefreshToken | null>;
   createRefreshToken(token: NewRefreshToken): Promise<void>;
   rotateRefreshToken(previousId: string, token: NewRefreshToken): Promise<boolean>;

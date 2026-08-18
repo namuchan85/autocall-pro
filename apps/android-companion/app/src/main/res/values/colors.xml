@@ -1,0 +1,5 @@
+<resources>
+    <color name="companion_bg">#0F172A</color>
+    <color name="companion_text">#E2E8F0</color>
+    <color name="companion_accent">#22D3EE</color>
+</resources>

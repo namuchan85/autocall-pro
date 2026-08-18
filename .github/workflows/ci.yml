@@ -22,7 +22,7 @@ jobs:
         run: npm ci
       - name: Generate Prisma client
         env:
-          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+          DATABASE_URL: file:./tmp/ci.db
         run: npm run prisma:generate
       - name: Lint
         run: npm run lint

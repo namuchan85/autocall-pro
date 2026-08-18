@@ -8,7 +8,7 @@ AutoCall Lite는 **개인 1명이 자신의 PC에서 사용하는 간단한 오�
 
 기존 AutoCall Pro 코드베이스를 삭제하거나 새 저장소를 만들지 않는다. 동작하는 기반(Next.js, NestJS, Prisma, PostgreSQL, Docker, Customer CRUD, Auth)을 재사용하고 방향을 Lite로 전환한다.
 
-이번 단계(Lite Level 2)에서는 USB로 연결된 Galaxy에 ADB로 전화 1통을 건다. 음성·DTMF·SMS·AI는 구현하지 않는다.
+이번 단계(Lite Level 3 Desktop v1 + v2 Companion)에서는 Level 2의 USB Galaxy ADB 단건 발신을 Windows EXE로 사용하고, Companion이 있으면 통화 상태·종료·순차 자동발신을 추가한다. 음성·DTMF·SMS API·AI는 구현하지 않는다.
 
 ## 2. 핵심 기능
 
@@ -22,7 +22,7 @@ AutoCall Lite는 **개인 1명이 자신의 PC에서 사용하는 간단한 오�
 8. 통화 결과 확인
 9. 위 기능이 안정된 뒤에만 선택적 AI 음성 대화
 
-현재 구현된 핵심은 1·2번(Customer 저장과 목록 조회)과 3번의 단건 ADB 발신이다. 연속 발신·음성·DTMF·문자(4~8번)는 이후 Level에서 구현한다.
+현재 구현된 핵심은 1·2번(Customer 저장과 목록 조회), 3번의 단건 발신(Companion 우선, ADB fallback), 순차 자동발신, 결과 배지다. 음성·DTMF·문자 API(4~8번)는 이후 Level에서 구현한다.
 
 ## 3. 제외 기능
 
@@ -43,22 +43,22 @@ AutoCall Lite는 **개인 1명이 자신의 PC에서 사용하는 간단한 오�
 
 ```text
 apps/
-  frontend/          로그인, 대시보드(향후: 목록·발신·결과·설정)
+  desktop/           Electron Main — Nest/Next 기동, 창, installer
+  frontend/          로그인, 대시보드(고객·Galaxy 상태·발신·기록·설정)
   backend/
-    modules/auth     단일 사용자 로그인 (기존 JWT 유지)
+    modules/auth     단일 로컬 사용자 로그인 (기존 JWT 유지)
     modules/customers
-    modules/telephony  ADB Galaxy 단건 발신
-    modules/calls      예정 — Call은 Prisma 모델만 존재
+    modules/telephony  ADB Galaxy 단건 발신 + Companion + 소형 자동발신
+    modules/settings   ADB 경로·device id, JSON export/import
     modules/messages   예정 — 아직 없음
-    modules/settings   예정 — 아직 없음
+  android-companion/ AutoCall Companion.apk
 
-apps/backend/prisma/ PostgreSQL + Prisma
-docker-compose.yml   postgres, redis, migrate, frontend
-                     Windows native backend가 ADB 발신에 사용됨
-                     Docker backend는 profile `docker-backend` (USB 불가)
+apps/backend/prisma/ SQLite + Prisma
+%APPDATA%\AutoCall Lite\  autocall.db, settings.json, logs
+docker-compose.yml   개발 fallback (postgres/redis). 사용자 EXE 경로는 Docker 없음
 ```
 
-빈 `messages` 모듈은 만들지 않는다. 음성·DTMF는 EXE 전환 이후 Level에서 추가한다. Level 3는 Windows EXE 전환이며 설계는 `docs/LEVEL3_WINDOWS_EXE.md`를 따른다.
+빈 `messages` 모듈은 만들지 않는다. 음성·DTMF는 EXE 전환 이후 Level에서 추가한다. Level 3 Desktop v1 사용법은 `docs/DESKTOP_V1.md`를 따른다.
 
 ## 5. 기본 Call Flow
 
@@ -110,7 +110,7 @@ Lite Level 2 이후의 기본 시나리오다.
 
 기존 프로젝트를 Lite 방향으로 단순화한다. 전화·문자·AI는 넣지 않는다.
 
-### Lite Level 2 — 실제 전화 1통 (현재)
+### Lite Level 2 — 실제 전화 1통
 
 Windows PC에서 USB 연결된 Galaxy를 ADB로 제어해 고객 번호 1통을 발신한다.
 
@@ -120,27 +120,15 @@ Windows PC에서 USB 연결된 Galaxy를 ADB로 제어해 고객 번호 1통을 
 - provider: `ADB_GALAXY`
 - 실제 응답/부재/통화중 감지는 하지 않는다
 
-환경변수: `ADB_PATH`, `ADB_DEVICE_ID` (값은 Git에 커밋하지 않는다)
+설정 화면에서 `ADB_PATH`, `ADB_DEVICE_ID`를 저장한다 (값은 Git에 커밋하지 않는다).
 
-준비·수동 검증:
-
-1. Docker PostgreSQL/Redis를 띄운다 (`npm run docker:infra`)
-2. `adb devices`에서 Galaxy가 `device`인지 확인한다
-3. `.env`에 `ADB_PATH`, `ADB_DEVICE_ID`를 넣는다 (값은 Git에 커밋하지 않는다)
-4. Windows에서 `npm run dev:backend`를 실행한다
-5. Frontend는 Docker 또는 `npm run dev:frontend`
-6. 대시보드에서 「전화 걸기」를 눌러 Galaxy 발신을 확인한다
-7. CI/단위 테스트에서는 실제 ADB를 실행하지 않는다
+CI/단위 테스트에서는 실제 ADB를 실행하지 않는다.
 
 ### Lite Level 3 — Windows EXE 전환 (현재 단계)
 
-새 오토콜 기능이 아니라, Level 2를 개인용 Windows 프로그램으로 쓰는 것이 목표다. 상세 설계·비교·단계 계획은 `docs/LEVEL3_WINDOWS_EXE.md`.
+새 오토콜 기능이 아니라, Level 2를 개인용 Windows 프로그램으로 쓰는 것이 목표다. 사용·설치는 `docs/DESKTOP_V1.md`.
 
-추천 구조: Electron이 기존 NestJS를 Windows 호스트에서 기동하고, 기존 Next UI와 `AdbProcessGateway`를 유지한다. 이 단계에서는 PostgreSQL/Redis/Auth/Prisma/ADB 코드를 삭제하거나 바꾸지 않는다.
-
-Level 3.1은 Desktop Shell PoC다. `npm run dev:desktop`이 Electron 창에서 `http://127.0.0.1:3000`만 연다. Nest/Next/Docker는 기존처럼 직접 실행하고, Electron은 아직 다른 프로세스를 띄우지 않는다.
-
-음성·DTMF·SMS·AI·대량 발신·Queue·SIP는 Level 3에서 구현하지 않는다. 안내 음성·DTMF는 예전 로드맵의 Level 3였으나 EXE 전환 이후로 미룬다.
+Electron이 NestJS와 Next UI를 기동하고, `AdbProcessGateway`의 `execFile` argv 경로는 유지한다. DB는 SQLite, Redis는 제거했다. 음성·DTMF·SMS·AI·대량 발신·Queue·SIP는 구현하지 않는다.
 
 ### Lite Level 4 — 문자·결과·UI
 
@@ -152,16 +140,15 @@ Level 3.1은 Desktop Shell PoC다. `npm run dev:desktop`이 Electron 창에서 `
 
 ## 7. 기존 프로젝트에서 유지하는 요소
 
-| 요소                          | 이유                                                                                            |
-| ----------------------------- | ----------------------------------------------------------------------------------------------- |
-| Customer CRUD                 | 전화번호 저장·조회가 Lite의 기반                                                                |
-| Prisma + PostgreSQL           | Level 2 실행 기반. SQLite는 Level 3 설계만 (`LEVEL3_WINDOWS_EXE.md`), 지금은 migration하지 않음 |
-| Docker Compose                | 로컬 실행이 이미 동작                                                                           |
-| Swagger                       | API 확인                                                                                        |
-| 기존 테스트 / CI              | 회귀 방지                                                                                       |
-| JWT Auth                      | Customer API와 테스트가 의존. 이번 단계 삭제하지 않음                                           |
-| Redis                         | 로그인 Rate Limit에 사용 중. Call Queue로는 확장하지 않음                                       |
-| Soft Delete, E.164, name trim | 데이터 무결성                                                                                   |
+| 요소                          | 이유                                                     |
+| ----------------------------- | -------------------------------------------------------- |
+| Customer CRUD                 | 전화번호 저장·조회가 Lite의 기반                         |
+| Prisma + SQLite               | Desktop v1 로컬 파일 DB. PostgreSQL 서버 불필요          |
+| Electron Desktop              | 일반 사용자가 npm/브라우저 없이 실행                     |
+| Swagger                       | 개발 중 API 확인                                         |
+| 기존 테스트 / CI              | 회귀 방지                                                |
+| JWT Auth                      | Customer·Telephony API 보호. 단일 로컬 관리자 부트스트랩 |
+| Soft Delete, E.164, name trim | 데이터 무결성                                            |
 
 Customer의 `customerCode`, `company`, `status`, `doNotCall`은 Lite 최소 필드보다 많다. **이번 작업에서 migration으로 삭제하지 않는다.**
 
@@ -181,10 +168,8 @@ Auth 결정(이번 단계): **A. 기존 Auth 유지**
 
 ## 9. Technical Debt
 
-- Customer keyword search currently uses case-insensitive contains queries across multiple columns. PostgreSQL indexing/search strategy should be reviewed when production data volume and query patterns are known.
+- Customer keyword search currently uses contains queries. SQLite does not use PostgreSQL `mode: 'insensitive'`.
 - Soft-deleted `customerCode` remains unique, so the same code cannot be reused.
-- Compose `TRUST_PROXY=false`이면 브라우저 로그인 Rate Limit이 frontend 컨테이너 IP로 묶일 수 있다.
-- 향후 완전한 단일 PC 프로그램으로 바꿀 경우 PostgreSQL → SQLite 전환을 검토할 수 있다. **이번 작업에서는 migration하지 않는다.**
 - 미사용이던 `bullmq`, WebSocket 패키지는 Lite Level 1에서 제거했다. 전화 Queue를 Redis/BullMQ로 다시 넣지 않는다.
-- Docker backend 컨테이너는 호스트 USB/ADB에 접근하지 못한다. 실제 발신은 Windows에서 `npm run dev:backend`로 실행해야 한다.
+- Docker backend 컨테이너는 호스트 USB/ADB에 접근하지 못한다. 실제 발신은 Desktop EXE 또는 Windows `npm run dev:desktop`으로 실행한다.
 - ADB CALL 성공은 다이얼러 실행 성공일 뿐, 상대방 응답 여부와는 다르다.

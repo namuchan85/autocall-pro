@@ -4,11 +4,10 @@ describe('validateEnvironment', () => {
   it('normalizes a valid foundation environment', () => {
     expect(
       validateEnvironment({
-        DATABASE_URL: 'postgresql://localhost:5432/autocall',
+        DATABASE_URL: 'file:./data/autocall.db',
         FRONTEND_URL: 'http://localhost:3000',
         JWT_ACCESS_SECRET: 'a'.repeat(32),
         JWT_REFRESH_SECRET: 'b'.repeat(32),
-        REDIS_URL: 'redis://localhost:6379',
         PORT: '3001',
       }),
     ).toMatchObject({

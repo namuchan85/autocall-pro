@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">AutoCall Companion</string>
+    <string name="request_default_dialer">기본 전화 앱으로 설정</string>
+    <string name="status_title">Companion 상태</string>
+    <string name="permission_hint">Windows에서 통화 상태와 종료를 쓰려면 이 앱을 기본 전화 앱으로 지정해야 합니다. 숨겨진 API나 root는 사용하지 않습니다.</string>
+    <string name="dialer_title">전화 걸기</string>
+    <string name="dialer_hint">기본 전화 앱 역할을 위해 공개 ACTION_DIAL 화면입니다.</string>
+    <string name="dialer_number_hint">전화번호</string>
+    <string name="place_call">전화 걸기</string>
+    <string name="incall_title">통화</string>
+    <string name="hangup">통화 종료</string>
+</resources>

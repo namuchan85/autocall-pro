@@ -53,8 +53,8 @@ async function bootstrap(): Promise<void> {
   SwaggerModule.setup('swagger', app, SwaggerModule.createDocument(app, swaggerConfig));
 
   const port = config.get<number>('PORT', 3001);
-  await app.listen(port);
-  Logger.log(`Backend listening on port ${port}`, 'Bootstrap');
+  await app.listen(port, '127.0.0.1');
+  Logger.log(`Backend listening on 127.0.0.1:${port}`, 'Bootstrap');
 }
 
 void bootstrap();

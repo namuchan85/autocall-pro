@@ -1,7 +1,7 @@
-import { PrismaPg } from '@prisma/adapter-pg';
 import { config } from 'dotenv';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { Role } from '../src/generated/prisma/enums';
+import { createSqlitePrismaClient } from '../src/infrastructure/database/create-prisma-client';
 import { hashPassword } from '../src/modules/auth/security/password';
 
 config({ path: ['.env', '../../.env'], quiet: true });
@@ -15,11 +15,8 @@ if (!databaseUrl) {
 if (!adminPassword) {
   throw new Error('SEED_ADMIN_PASSWORD is required to run the seed');
 }
-const seedAdminPassword = adminPassword;
 
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: databaseUrl }),
-});
+const prisma: PrismaClient = createSqlitePrismaClient(databaseUrl);
 
 async function main(): Promise<void> {
   const email = 'admin@autocall.local';
@@ -33,7 +30,7 @@ async function main(): Promise<void> {
   await prisma.user.create({
     data: {
       email,
-      password: await hashPassword(seedAdminPassword),
+      password: await hashPassword(adminPassword),
       name: 'AutoCall Super Administrator',
       role: Role.SUPER_ADMIN,
       isActive: true,

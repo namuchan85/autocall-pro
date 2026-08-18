@@ -9,7 +9,7 @@ export class HealthController {
 
   @Get()
   @ApiOkResponse({
-    description: 'PostgreSQL and Redis are reachable',
+    description: 'Local SQLite database is reachable',
     schema: {
       example: { status: 'ok' },
     },

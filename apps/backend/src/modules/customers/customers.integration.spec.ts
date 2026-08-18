@@ -57,6 +57,8 @@ class MemoryCustomerRepository implements CustomerRepository {
       memo: input.memo ?? null,
       status: input.status ?? 'ACTIVE',
       doNotCall: input.doNotCall ?? false,
+      lastOutcome: null,
+      latestCall: null,
       deletedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -450,6 +452,24 @@ describe('Customers HTTP integration', () => {
       .set('Authorization', authorization);
     expect(readTotal(listed.body)).toBe(0);
   });
+
+  it('records 수신거부 as doNotCall on the server', async () => {
+    await createApp();
+    const authorization = await bearer(ADMIN);
+    const created = await request(httpServer())
+      .post('/customers')
+      .set('Authorization', authorization)
+      .send({ name: 'Alice', phoneNumber: '01012345678' });
+    const id = readId(created.body);
+
+    const outcome = await request(httpServer())
+      .post(`/customers/${id}/outcome`)
+      .set('Authorization', authorization)
+      .send({ outcome: 'DO_NOT_CALL' });
+    expect(outcome.status).toBe(201);
+    expect(readDoNotCall(outcome.body)).toBe(true);
+    expect(readLastOutcome(outcome.body)).toBe('DO_NOT_CALL');
+  });
 });
 
 function readId(body: unknown): string {
@@ -530,6 +550,27 @@ function readMemo(body: unknown): string | null {
   if (typeof body === 'object' && body !== null && 'memo' in body) {
     if (body.memo === null || typeof body.memo === 'string') {
       return body.memo;
+    }
+  }
+  throw new Error('Unexpected customer response');
+}
+
+function readDoNotCall(body: unknown): boolean {
+  if (
+    typeof body === 'object' &&
+    body !== null &&
+    'doNotCall' in body &&
+    typeof body.doNotCall === 'boolean'
+  ) {
+    return body.doNotCall;
+  }
+  throw new Error('Unexpected customer response');
+}
+
+function readLastOutcome(body: unknown): string | null {
+  if (typeof body === 'object' && body !== null && 'lastOutcome' in body) {
+    if (body.lastOutcome === null || typeof body.lastOutcome === 'string') {
+      return body.lastOutcome;
     }
   }
   throw new Error('Unexpected customer response');

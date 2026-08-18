@@ -10,6 +10,15 @@ coverage/
 
 apps/backend/src/generated/
 
+*.db
+apps/backend/tmp/
+apps/backend/data/
+release/
+release-v2/
+apps/android-companion/.gradle/
+apps/android-companion/**/build/
+
+
 *.log
 .DS_Store
 Thumbs.db

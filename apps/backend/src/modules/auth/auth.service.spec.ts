@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { UnauthorizedException } from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { Role } from '../../generated/prisma/enums';
 import type { AuthRepository } from './domain/auth.repository';
 import { AuthService } from './auth.service';
@@ -11,6 +11,7 @@ const USER_ID = '00000000-0000-4000-8000-000000000001';
 
 function createRepository(): jest.Mocked<AuthRepository> {
   return {
+    createLocalAdmin: jest.fn().mockResolvedValue(undefined),
     createRefreshToken: jest.fn().mockResolvedValue(undefined),
     findActiveUserById: jest.fn(),
     findRefreshTokenById: jest.fn(),
@@ -101,5 +102,47 @@ describe('AuthService', () => {
 
     expect(refreshed.refreshToken).not.toBe(firstSession.refreshToken);
     expect(repository.rotateRefreshToken.mock.calls).toHaveLength(1);
+  });
+
+  it('reports setup is required when the local administrator is missing', async () => {
+    const repository = createRepository();
+    repository.findUserByEmail.mockResolvedValue(null);
+
+    await expect(createService(repository).needsSetup()).resolves.toBe(true);
+    expect(repository.createLocalAdmin.mock.calls).toHaveLength(0);
+  });
+
+  it('hashes the first administrator password and never stores plaintext', async () => {
+    const repository = createRepository();
+    repository.findUserByEmail.mockResolvedValue(null);
+    const hashSpy = jest
+      .spyOn(password, 'hashPassword')
+      .mockResolvedValue('$2b$12$abcdefghijklmnopqrstuvabcdefghijklmnopqrstuvabcde');
+
+    await createService(repository).setupAdministrator('ChangeMe123!', 'ChangeMe123!');
+
+    expect(hashSpy).toHaveBeenCalledWith('ChangeMe123!');
+    expect(repository.createLocalAdmin.mock.calls).toHaveLength(1);
+    const created = repository.createLocalAdmin.mock.calls[0]?.[0];
+    expect(created?.passwordHash.startsWith('$2b$')).toBe(true);
+    expect(created?.passwordHash).not.toContain('ChangeMe123!');
+    expect(JSON.stringify(created)).not.toContain('ChangeMe123!');
+  });
+
+  it('does not recreate the administrator when the account already exists', async () => {
+    const repository = createRepository();
+    repository.findUserByEmail.mockResolvedValue({
+      id: USER_ID,
+      email: 'admin@autocall.local',
+      password: '$2b$12$existinghash',
+      name: 'Administrator',
+      role: Role.SUPER_ADMIN,
+      isActive: true,
+    });
+
+    await expect(
+      createService(repository).setupAdministrator('ChangeMe123!', 'ChangeMe123!'),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(repository.createLocalAdmin.mock.calls).toHaveLength(0);
   });
 });

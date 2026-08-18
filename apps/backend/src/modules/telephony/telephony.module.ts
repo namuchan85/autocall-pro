@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { CustomersModule } from '../customers/customers.module';
+import { AutoDialerService } from './auto-call/auto-dialer.service';
+import { COMPANION_BRIDGE } from './companion/companion.bridge';
+import { AdbCompanionBridge } from './companion/adb-companion.bridge';
 import { ADB_GATEWAY } from './domain/adb.gateway';
 import { CALL_REPOSITORY } from './domain/call.repository';
 import { AdbProcessGateway } from './infrastructure/adb-process.gateway';
@@ -13,8 +16,10 @@ import { TelephonyService } from './telephony.service';
   controllers: [TelephonyController],
   providers: [
     TelephonyService,
+    AutoDialerService,
     PrismaCallRepository,
     AdbProcessGateway,
+    AdbCompanionBridge,
     {
       provide: CALL_REPOSITORY,
       useExisting: PrismaCallRepository,
@@ -22,6 +27,10 @@ import { TelephonyService } from './telephony.service';
     {
       provide: ADB_GATEWAY,
       useExisting: AdbProcessGateway,
+    },
+    {
+      provide: COMPANION_BRIDGE,
+      useExisting: AdbCompanionBridge,
     },
   ],
 })
