@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, type IpcMainInvokeEvent } from 'electron';
 import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { FRONTEND_ORIGIN, isAllowedFrontendUrl } from './frontend-url';
 import { isTrustedIpcSender } from './ipc-sender';
 import { DesktopProcessManager } from './process-manager';
@@ -11,7 +12,24 @@ const processes = new DesktopProcessManager();
 let mainWindow: BrowserWindow | undefined;
 let isShuttingDown = false;
 
-const STARTING_HTML = `<!DOCTYPE html>
+function loadDesktopBuildInfo(): { buildAt: string; gitSha: string; version: string } {
+  try {
+    const candidate = path.join(__dirname, 'build-info.json');
+    const raw = readFileSync(candidate, 'utf8');
+    const parsed = JSON.parse(raw) as { buildAt: string; gitSha: string; version: string };
+    return parsed;
+  } catch {
+    return { buildAt: 'unknown', gitSha: 'unknown', version: '0.0.0' };
+  }
+}
+
+function renderStartingHtml(desktopBuildInfo: {
+  buildAt: string;
+  gitSha: string;
+  version: string;
+}): string {
+  const desktopLine = `${desktopBuildInfo.version} · ${desktopBuildInfo.gitSha} · ${desktopBuildInfo.buildAt}`;
+  return `<!DOCTYPE html>
 <html lang="ko">
   <head>
     <meta charset="utf-8" />
@@ -22,8 +40,12 @@ const STARTING_HTML = `<!DOCTYPE html>
       main { max-width:36rem; padding:2rem; text-align:center; }
     </style>
   </head>
-  <body><main><h1>AutoCall Lite를 시작하는 중입니다.</h1><p>로컬 서비스가 준비되면 화면이 바뀝니다.</p></main></body>
+  <body><main><h1>AutoCall Lite를 시작하는 중입니다.</h1><p>로컬 서비스가 준비되면 화면이 바뀝니다.</p><p style="margin-top:1rem;opacity:.85;font-size:.9rem">${desktopLine}</p></main></body>
 </html>`;
+}
+
+const STARTING_DESKTOP_BUILD_INFO = loadDesktopBuildInfo();
+const STARTING_HTML = renderStartingHtml(STARTING_DESKTOP_BUILD_INFO);
 
 function applyWebContentsGuards(): void {
   app.on('web-contents-created', (_event, contents) => {
@@ -91,6 +113,10 @@ async function bootstrap(): Promise<void> {
       filters: [{ name: 'adb', extensions: ['exe'] }],
     });
     return result.canceled ? '' : (result.filePaths[0] ?? '');
+  });
+
+  ipcMain.handle('desktop-build-info', async () => {
+    return loadDesktopBuildInfo();
   });
 
   await app.whenReady();

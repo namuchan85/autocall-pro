@@ -8,9 +8,9 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "lint": "tsc --noEmit -p tsconfig.json",
-    "start": "npm run build && electron .",
+    "start": "npm run build && node scripts/write-build-info.cjs && electron .",
     "test": "tsc -p tsconfig.json && node --test dist/frontend-url.test.js dist/adb-discover.test.js dist/electron-security.test.js dist/secrets-file.test.js dist/process-lifecycle.test.js dist/single-instance.test.js dist/ipc-sender.test.js",
-    "dist": "npm run build && electron-builder --win nsis"
+    "dist": "npm run build && node scripts/write-build-info.cjs && electron-builder --win nsis"
   },
   "devDependencies": {
     "electron": "41.10.5",

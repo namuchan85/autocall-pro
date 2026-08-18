@@ -167,6 +167,11 @@ export default function DashboardPage() {
   const [autoCall, setAutoCall] = useState<AutoCallSnapshot | null>(null);
   const [activeCall, setActiveCall] = useState<ActiveCallResponse | null>(null);
   const [lastTerminalCall, setLastTerminalCall] = useState<ActiveCallResponse | null>(null);
+  const [desktopBuildInfo, setDesktopBuildInfo] = useState<{
+    buildAt: string;
+    gitSha: string;
+    version: string;
+  } | null>(null);
   const [waitMs, setWaitMs] = useState(5000);
   const [ringMs, setRingMs] = useState(30000);
   const [maxCallMs, setMaxCallMs] = useState(60000);
@@ -326,6 +331,18 @@ export default function DashboardPage() {
     loadActiveCall,
     router,
   ]);
+
+  useEffect(() => {
+    if (!window.desktop?.getDesktopBuildInfo) {
+      return;
+    }
+    void window.desktop
+      .getDesktopBuildInfo()
+      .then((info) => setDesktopBuildInfo(info))
+      .catch(() => {
+        setDesktopBuildInfo(null);
+      });
+  }, []);
 
   useEffect(() => {
     const fast = window.setInterval(() => {
@@ -632,6 +649,12 @@ export default function DashboardPage() {
               새로고침
             </button>
           </div>
+          {desktopBuildInfo ? (
+            <p className="mt-2 text-xs text-slate-400">
+              Windows: {desktopBuildInfo.version} · {desktopBuildInfo.gitSha} ·{' '}
+              {desktopBuildInfo.buildAt}
+            </p>
+          ) : null}
           <p className="mt-3 text-lg">
             {device?.connected ? '🟢 연결됨' : '🔴 연결 안 됨'}
             {device ? ` · ${deviceStatusLabel(device.status)}` : ''}
