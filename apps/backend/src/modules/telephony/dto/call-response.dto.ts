@@ -55,6 +55,27 @@ export class CallResponseDto {
   @ApiPropertyOptional({ nullable: true, type: String })
   errorMessage!: string | null;
 
+  @ApiPropertyOptional({ nullable: true, type: String })
+  sessionId!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  companionState!: string | null;
+
+  @ApiProperty()
+  observedActive!: boolean;
+
+  @ApiPropertyOptional({ nullable: true, type: String, format: 'date-time' })
+  startedAt!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String, format: 'date-time' })
+  endedAt!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: Number })
+  durationSeconds!: number | null;
+
+  @ApiProperty()
+  attempt!: number;
+
   @ApiProperty({ format: 'date-time' })
   createdAt!: string;
 
@@ -70,6 +91,13 @@ export class CallResponseDto {
       provider: record.provider,
       deviceId: record.deviceId,
       errorMessage: record.errorMessage,
+      sessionId: record.sessionId,
+      companionState: record.companionState,
+      observedActive: record.observedActive,
+      startedAt: record.startedAt?.toISOString() ?? null,
+      endedAt: record.endedAt?.toISOString() ?? null,
+      durationSeconds: record.durationSeconds,
+      attempt: record.attempt,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
     };

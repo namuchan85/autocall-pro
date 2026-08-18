@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.AutoCallCompanion" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="android:windowBackground">@color/companion_bg</item>
+        <item name="android:textColor">@color/companion_text</item>
+        <item name="colorPrimary">@color/companion_accent</item>
+    </style>
+</resources>

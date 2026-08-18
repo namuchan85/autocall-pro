@@ -22,9 +22,21 @@ export class PrismaCallRepository implements CallRepository {
           provider: input.provider,
           deviceId: input.deviceId,
           errorMessage: input.errorMessage ?? null,
+          sessionId: input.sessionId ?? null,
+          companionState: input.companionState ?? null,
+          observedActive: input.observedActive ?? false,
+          startedAt: input.startedAt ?? null,
+          endedAt: input.endedAt ?? null,
+          durationSeconds: input.durationSeconds ?? null,
+          attempt: input.attempt ?? 1,
         },
       }),
     );
+  }
+
+  async findById(id: string): Promise<CallRecord | null> {
+    const call = await this.prisma.call.findUnique({ where: { id } });
+    return call ? toRecord(call) : null;
   }
 
   async updateStatus(id: string, patch: CallStatusPatch): Promise<CallRecord | null> {
@@ -40,7 +52,15 @@ export class PrismaCallRepository implements CallRepository {
         where: { id },
         data: {
           status: patch.status,
-          errorMessage: patch.errorMessage ?? null,
+          provider: patch.provider,
+          errorMessage: patch.errorMessage,
+          sessionId: patch.sessionId,
+          companionState: patch.companionState,
+          observedActive: patch.observedActive,
+          startedAt: patch.startedAt,
+          endedAt: patch.endedAt,
+          durationSeconds: patch.durationSeconds,
+          attempt: patch.attempt,
         },
       }),
     );
@@ -67,6 +87,13 @@ function toRecord(call: {
   provider: CallRecord['provider'];
   deviceId: string;
   errorMessage: string | null;
+  sessionId: string | null;
+  companionState: string | null;
+  observedActive: boolean;
+  startedAt: Date | null;
+  endedAt: Date | null;
+  durationSeconds: number | null;
+  attempt: number;
   createdAt: Date;
   updatedAt: Date;
 }): CallRecord {

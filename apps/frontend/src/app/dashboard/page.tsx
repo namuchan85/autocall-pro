@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { authorizedFetch, readApiError } from '@/lib/api-client';
 import { getCurrentUser, type AuthUser } from '@/lib/auth-client';
+import { displayBadgeEmoji, displayColorClass } from '@/lib/customer-call-display';
 import {
   formatPhoneForDisplay,
   isE164PhoneNumber,
@@ -18,6 +19,10 @@ interface CustomerItem {
   memo: string | null;
   status: 'ACTIVE' | 'INACTIVE' | 'BLOCKED';
   doNotCall: boolean;
+  lastOutcome: string | null;
+  displayColor: 'gray' | 'yellow' | 'blue' | 'red' | 'green' | 'orange';
+  displayBadge: string;
+  displayLabel: string;
 }
 
 interface CustomerListResponse {
@@ -31,7 +36,8 @@ interface CallHistoryItem {
   id: string;
   customerName: string;
   phoneNumber: string;
-  status: 'REQUESTED' | 'STARTED' | 'FAILED';
+  status: string;
+  provider: string;
   createdAt: string;
   errorMessage: string | null;
 }
@@ -41,6 +47,34 @@ interface DeviceStatus {
   connected: boolean;
   deviceId: string | null;
   devices: { id: string; state: string }[];
+}
+
+interface CompanionStatus {
+  galaxy: { status: string; connected: boolean; deviceId: string | null };
+  companion: {
+    installed: boolean;
+    version: string | null;
+    defaultDialer: boolean;
+    callState: string;
+    lastError: string | null;
+    phoneControl: string;
+    companion: string;
+  };
+  labels: {
+    galaxy: string;
+    companion: string;
+    phoneControl: string;
+  };
+}
+
+interface AutoCallSnapshot {
+  phase: string;
+  running: boolean;
+  paused: boolean;
+  currentCustomerId: string | null;
+  remaining: number;
+  lastError: string | null;
+  message: string | null;
 }
 
 function deviceStatusLabel(status: DeviceStatus['status']): string {
@@ -109,10 +143,19 @@ export default function DashboardPage() {
   const [adbPath, setAdbPath] = useState('');
   const [adbDeviceId, setAdbDeviceId] = useState('');
   const [settingsMessage, setSettingsMessage] = useState('');
+  const [companion, setCompanion] = useState<CompanionStatus | null>(null);
+  const [autoCall, setAutoCall] = useState<AutoCallSnapshot | null>(null);
+  const [activeCallId, setActiveCallId] = useState<string | null>(null);
+  const [waitMs, setWaitMs] = useState(5000);
+  const [ringMs, setRingMs] = useState(30000);
+  const [maxCallMs, setMaxCallMs] = useState(60000);
+  const [retryOnFailure, setRetryOnFailure] = useState(false);
+  const [maxRetries, setMaxRetries] = useState(1);
+  const [hangupOnStop, setHangupOnStop] = useState(true);
 
   const canManage =
     user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
-  const busy = saving || callingId !== null || deletingId !== null;
+  const busy = saving || callingId !== null || deletingId !== null || Boolean(autoCall?.running);
 
   const loadCustomers = useCallback(async () => {
     const response = await authorizedFetch('/customers?limit=100');
@@ -131,6 +174,32 @@ export default function DashboardPage() {
       throw new Error(readApiError(body, 'Galaxy 상태를 불러오지 못했습니다.'));
     }
     setDevice((await response.json()) as DeviceStatus);
+  }, []);
+
+  const loadCompanion = useCallback(async () => {
+    const response = await authorizedFetch('/telephony/companion');
+    if (!response.ok) {
+      return;
+    }
+    setCompanion((await response.json()) as CompanionStatus);
+  }, []);
+
+  const loadAutoCall = useCallback(async () => {
+    const response = await authorizedFetch('/telephony/auto-call');
+    if (!response.ok) {
+      return;
+    }
+    setAutoCall((await response.json()) as AutoCallSnapshot);
+  }, []);
+
+  const loadActiveCall = useCallback(async () => {
+    const response = await authorizedFetch('/telephony/active-call');
+    if (!response.ok) {
+      setActiveCallId(null);
+      return;
+    }
+    const body = (await response.json()) as { id: string | null };
+    setActiveCallId(body.id);
   }, []);
 
   const loadHistory = useCallback(async () => {
@@ -156,7 +225,15 @@ export default function DashboardPage() {
       .then(async (current) => {
         setUser(current);
         try {
-          await Promise.all([loadCustomers(), loadDevice(), loadHistory(), loadSettings()]);
+          await Promise.all([
+            loadCustomers(),
+            loadDevice(),
+            loadHistory(),
+            loadSettings(),
+            loadCompanion(),
+            loadAutoCall(),
+            loadActiveCall(),
+          ]);
         } catch (caught) {
           setLoadError(
             caught instanceof Error ? caught.message : '고객 목록을 불러오지 못했습니다.',
@@ -164,7 +241,29 @@ export default function DashboardPage() {
         }
       })
       .catch(() => router.replace('/login'));
-  }, [loadCustomers, loadDevice, loadHistory, loadSettings, router]);
+  }, [
+    loadCustomers,
+    loadDevice,
+    loadHistory,
+    loadSettings,
+    loadCompanion,
+    loadAutoCall,
+    loadActiveCall,
+    router,
+  ]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void Promise.all([
+        loadCompanion(),
+        loadAutoCall(),
+        loadActiveCall(),
+        loadCustomers(),
+        loadHistory(),
+      ]);
+    }, 2000);
+    return () => window.clearInterval(timer);
+  }, [loadCompanion, loadAutoCall, loadActiveCall, loadCustomers, loadHistory]);
 
   function resetForm(): void {
     setEditingId(null);
@@ -277,12 +376,92 @@ export default function DashboardPage() {
         throw new Error(readApiError(body, '발신 요청에 실패했습니다.'));
       }
       setCallSuccess('Galaxy에서 발신 요청이 시작되었습니다.');
-      await loadHistory();
+      await Promise.all([loadHistory(), loadActiveCall(), loadCustomers()]);
     } catch (caught) {
       setCallError(caught instanceof Error ? caught.message : '발신 요청에 실패했습니다.');
     } finally {
       setCallingId(null);
     }
+  }
+
+  async function hangup(): Promise<void> {
+    setCallError('');
+    const response = await authorizedFetch('/telephony/hangup', { method: 'POST', body: '{}' });
+    if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null);
+      setCallError(readApiError(body, '통화 종료에 실패했습니다.'));
+      return;
+    }
+    setCallSuccess('통화 종료를 요청했습니다.');
+    await Promise.all([loadHistory(), loadActiveCall(), loadCompanion()]);
+  }
+
+  async function recordOutcome(
+    customer: CustomerItem,
+    outcome: 'SMS_REQUESTED' | 'NOT_INTERESTED' | 'DO_NOT_CALL' | 'CALL_AGAIN',
+  ): Promise<void> {
+    const response = await authorizedFetch(`/customers/${customer.id}/outcome`, {
+      method: 'POST',
+      body: JSON.stringify({ outcome }),
+    });
+    if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null);
+      setFormError(readApiError(body, '결과를 저장하지 못했습니다.'));
+      return;
+    }
+    await loadCustomers();
+  }
+
+  async function startAutoCall(): Promise<void> {
+    setCallError('');
+    const response = await authorizedFetch('/telephony/auto-call/start', {
+      method: 'POST',
+      body: JSON.stringify({
+        waitBetweenCallsMs: waitMs,
+        ringTimeoutMs: ringMs,
+        maxCallDurationMs: maxCallMs,
+        retryOnFailure,
+        maxRetries,
+        hangupOnStop,
+      }),
+    });
+    if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null);
+      setCallError(readApiError(body, '자동발신을 시작하지 못했습니다.'));
+      return;
+    }
+    setAutoCall((await response.json()) as AutoCallSnapshot);
+  }
+
+  async function controlAutoCall(path: 'pause' | 'resume' | 'stop'): Promise<void> {
+    const response = await authorizedFetch(`/telephony/auto-call/${path}`, {
+      method: 'POST',
+      body: JSON.stringify(path === 'stop' ? { hangupCurrent: hangupOnStop } : {}),
+    });
+    if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null);
+      setCallError(readApiError(body, '자동발신 제어에 실패했습니다.'));
+      return;
+    }
+    setAutoCall((await response.json()) as AutoCallSnapshot);
+  }
+
+  async function installCompanion(): Promise<void> {
+    const confirmed = window.confirm('연결된 Galaxy에 AutoCall Companion APK를 설치할까요?');
+    if (!confirmed) {
+      return;
+    }
+    const response = await authorizedFetch('/telephony/companion/install', {
+      method: 'POST',
+      body: '{}',
+    });
+    if (!response.ok) {
+      const body: unknown = await response.json().catch(() => null);
+      setCallError(readApiError(body, 'Companion 설치에 실패했습니다.'));
+      return;
+    }
+    setCallSuccess('Companion APK 설치를 요청했습니다. Galaxy에서 기본 전화 앱 권한을 승인하세요.');
+    await loadCompanion();
   }
 
   async function saveSettings(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -299,7 +478,7 @@ export default function DashboardPage() {
     }
     setSettingsMessage('설정이 저장되었습니다.');
     try {
-      await loadDevice();
+      await Promise.all([loadDevice(), loadCompanion()]);
     } catch (caught) {
       setDeviceError(
         caught instanceof Error ? caught.message : 'Galaxy 상태를 불러오지 못했습니다.',
@@ -315,22 +494,27 @@ export default function DashboardPage() {
     );
   }
 
+  const phoneControlReady = companion?.companion.phoneControl === 'ready';
+
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-16 text-slate-100">
       <section className="mx-auto max-w-3xl space-y-6">
         <div>
           <h1 className="text-3xl font-bold">AutoCall Lite</h1>
-          <p className="mt-2 text-slate-400">고객을 등록한 뒤 Galaxy로 전화를 겁니다.</p>
+          <p className="mt-2 text-slate-400">
+            고객을 등록한 뒤 USB Galaxy와 Companion으로 전화를 겁니다. 앱 시작만으로 자동발신되지
+            않습니다.
+          </p>
         </div>
         <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-semibold">Galaxy Device</h2>
+            <h2 className="text-lg font-semibold">Galaxy / Companion / Phone Control</h2>
             <button
               type="button"
               className="rounded-lg border border-slate-700 px-3 py-1 text-sm"
               onClick={() => {
                 setDeviceError('');
-                void loadDevice().catch((caught: unknown) => {
+                void Promise.all([loadDevice(), loadCompanion()]).catch((caught: unknown) => {
                   setDeviceError(
                     caught instanceof Error ? caught.message : 'Galaxy 상태를 불러오지 못했습니다.',
                   );
@@ -345,6 +529,19 @@ export default function DashboardPage() {
             {device ? ` · ${deviceStatusLabel(device.status)}` : ''}
           </p>
           <p className="mt-1 text-sm text-slate-400">{device?.deviceId ?? 'Device ID 없음'}</p>
+          <ul className="mt-4 space-y-1 text-sm">
+            <li>
+              Galaxy:{' '}
+              {companion?.labels.galaxy ?? (device?.connected ? 'Connected' : 'Not connected')}
+            </li>
+            <li>Companion: {companion?.labels.companion ?? 'Not installed'}</li>
+            <li>Phone Control: {companion?.labels.phoneControl ?? 'Not installed'}</li>
+            <li>Call state: {companion?.companion.callState ?? 'UNKNOWN'}</li>
+            {companion?.companion.version ? <li>Version: {companion.companion.version}</li> : null}
+            {companion?.companion.lastError ? (
+              <li className="text-red-400">{companion.companion.lastError}</li>
+            ) : null}
+          </ul>
           {device && device.devices.length > 0 ? (
             <ul className="mt-3 space-y-1 text-sm text-slate-300">
               {device.devices.map((item) => (
@@ -360,8 +557,141 @@ export default function DashboardPage() {
               ))}
             </ul>
           ) : null}
+          {canManage ? (
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
+                disabled={busy || !activeCallId}
+                onClick={() => {
+                  void hangup();
+                }}
+              >
+                통화 종료
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm"
+                onClick={() => {
+                  void installCompanion();
+                }}
+              >
+                Companion APK 설치
+              </button>
+            </div>
+          ) : null}
           {deviceError ? <p className="mt-2 text-sm text-red-400">{deviceError}</p> : null}
         </div>
+        {canManage ? (
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-5">
+            <h2 className="text-lg font-semibold">자동발신</h2>
+            <p className="mt-2 text-sm text-slate-400">
+              Start를 누르기 전에는 발신하지 않습니다. Companion이 기본 전화 앱이어야 합니다. ADB
+              fallback은 단건 발신에만 사용합니다.
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <label className="text-sm">
+                다음 전화 대기(ms)
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
+                  type="number"
+                  value={waitMs}
+                  onChange={(event) => setWaitMs(Number(event.target.value))}
+                />
+              </label>
+              <label className="text-sm">
+                ringing 최대 대기(ms)
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
+                  type="number"
+                  value={ringMs}
+                  onChange={(event) => setRingMs(Number(event.target.value))}
+                />
+              </label>
+              <label className="text-sm">
+                연결 후 최대 통화(ms)
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
+                  type="number"
+                  value={maxCallMs}
+                  onChange={(event) => setMaxCallMs(Number(event.target.value))}
+                />
+              </label>
+              <label className="text-sm">
+                최대 재시도
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2"
+                  type="number"
+                  value={maxRetries}
+                  onChange={(event) => setMaxRetries(Number(event.target.value))}
+                />
+              </label>
+            </div>
+            <label className="mt-3 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={retryOnFailure}
+                onChange={(event) => setRetryOnFailure(event.target.checked)}
+              />
+              실패 시 재시도
+            </label>
+            <label className="mt-2 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={hangupOnStop}
+                onChange={(event) => setHangupOnStop(event.target.checked)}
+              />
+              중지 시 현재 통화도 종료
+            </label>
+            <p className="mt-3 text-sm text-slate-300">
+              상태: {autoCall?.phase ?? 'IDLE'}
+              {autoCall?.message ? ` · ${autoCall.message}` : ''}
+              {autoCall?.lastError ? ` · ${autoCall.lastError}` : ''}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-lg bg-cyan-500 px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-60"
+                disabled={Boolean(autoCall?.running) || !phoneControlReady}
+                onClick={() => {
+                  void startAutoCall();
+                }}
+              >
+                자동발신 시작
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm disabled:opacity-60"
+                disabled={!autoCall?.running || autoCall.paused}
+                onClick={() => {
+                  void controlAutoCall('pause');
+                }}
+              >
+                일시정지
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-slate-700 px-4 py-2 text-sm disabled:opacity-60"
+                disabled={!autoCall?.paused}
+                onClick={() => {
+                  void controlAutoCall('resume');
+                }}
+              >
+                재개
+              </button>
+              <button
+                type="button"
+                className="rounded-lg border border-red-700 px-4 py-2 text-sm text-red-200 disabled:opacity-60"
+                disabled={!autoCall?.running && autoCall?.phase !== 'PAUSED'}
+                onClick={() => {
+                  void controlAutoCall('stop');
+                }}
+              >
+                중지
+              </button>
+            </div>
+          </div>
+        ) : null}
         {canManage ? (
           <form
             className="space-y-3 rounded-xl border border-slate-800 bg-slate-900 p-5"
@@ -519,6 +849,17 @@ export default function DashboardPage() {
             {callError}
           </p>
         ) : null}
+        <div className="rounded-xl border border-slate-800 bg-slate-900 p-4 text-sm text-slate-300">
+          <p className="font-medium">통화 결과 색상</p>
+          <ul className="mt-2 space-y-1">
+            <li>⚪ 회색 = 아직 발신하지 않음</li>
+            <li>🟡 노랑 = 진행 중</li>
+            <li>🔵 파랑 = 연결 확인</li>
+            <li>🔴 빨강 = 미연결/실패</li>
+            <li>🟢 녹색 = 문자 요청</li>
+            <li>🟠 주황 = 수신거부</li>
+          </ul>
+        </div>
         <ul className="divide-y divide-slate-800 rounded-xl border border-slate-800">
           {customers.length === 0 ? (
             <li className="px-4 py-6 text-slate-400">저장된 고객이 없습니다.</li>
@@ -526,9 +867,15 @@ export default function DashboardPage() {
             customers.map((customer) => {
               const disabledReason = callDisabledReason(customer);
               return (
-                <li key={customer.id} className="flex items-start justify-between gap-4 px-4 py-4">
+                <li
+                  key={customer.id}
+                  className={`flex items-start justify-between gap-4 px-4 py-4 ${displayColorClass(customer.displayColor)}`}
+                >
                   <div>
-                    <p className="font-medium">{customer.name}</p>
+                    <p className="font-medium">
+                      {displayBadgeEmoji(customer.displayColor)} {customer.displayBadge} ·{' '}
+                      {customer.name}
+                    </p>
                     <p className="text-sm text-slate-400">
                       {formatPhoneForDisplay(customer.phoneNumber)}
                     </p>
@@ -555,6 +902,36 @@ export default function DashboardPage() {
                       {disabledReason ? (
                         <p className="text-xs text-slate-500">{disabledReason}</p>
                       ) : null}
+                      <div className="grid grid-cols-2 gap-1">
+                        <button
+                          className="rounded border border-slate-700 px-2 py-1 text-xs"
+                          type="button"
+                          onClick={() => void recordOutcome(customer, 'SMS_REQUESTED')}
+                        >
+                          문자 요청
+                        </button>
+                        <button
+                          className="rounded border border-slate-700 px-2 py-1 text-xs"
+                          type="button"
+                          onClick={() => void recordOutcome(customer, 'NOT_INTERESTED')}
+                        >
+                          관심 없음
+                        </button>
+                        <button
+                          className="rounded border border-slate-700 px-2 py-1 text-xs"
+                          type="button"
+                          onClick={() => void recordOutcome(customer, 'DO_NOT_CALL')}
+                        >
+                          수신거부
+                        </button>
+                        <button
+                          className="rounded border border-slate-700 px-2 py-1 text-xs"
+                          type="button"
+                          onClick={() => void recordOutcome(customer, 'CALL_AGAIN')}
+                        >
+                          다시 전화
+                        </button>
+                      </div>
                       <div className="flex gap-2">
                         <button
                           className="rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-200 disabled:opacity-60"
@@ -594,7 +971,7 @@ export default function DashboardPage() {
                     {item.customerName} · {formatPhoneForDisplay(item.phoneNumber)}
                   </p>
                   <p className="text-slate-400">
-                    {item.status} · {new Date(item.createdAt).toLocaleString()}
+                    {item.status} · {item.provider} · {new Date(item.createdAt).toLocaleString()}
                   </p>
                   {item.errorMessage ? <p className="text-red-400">{item.errorMessage}</p> : null}
                 </li>

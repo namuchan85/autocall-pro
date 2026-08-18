@@ -5,10 +5,12 @@ import { CUSTOMER_REPOSITORY, type CustomerRepository } from './domain/customer.
 import type {
   CustomerListQuery,
   CustomerListResult,
+  CustomerOutcome,
   CustomerPatch,
   CustomerRecord,
   NewCustomer,
 } from './domain/customer.types';
+import { isE164PhoneNumber } from './validation/phone-number';
 
 @Injectable()
 export class CustomersService {
@@ -72,6 +74,29 @@ export class CustomersService {
     if (!deleted) {
       throw new NotFoundException('Customer not found');
     }
+  }
+
+  async recordOutcome(id: string, outcome: CustomerOutcome): Promise<CustomerRecord> {
+    return this.update(id, {
+      lastOutcome: outcome,
+      doNotCall: outcome === 'DO_NOT_CALL' ? true : undefined,
+    });
+  }
+
+  async listEligibleForAutoCall(): Promise<CustomerRecord[]> {
+    const result = await this.repository.list({
+      page: 1,
+      limit: 500,
+      status: 'ACTIVE',
+      doNotCall: false,
+    });
+    return result.items.filter(
+      (item) =>
+        !item.deletedAt &&
+        !item.doNotCall &&
+        item.status === 'ACTIVE' &&
+        isE164PhoneNumber(item.phoneNumber),
+    );
   }
 }
 

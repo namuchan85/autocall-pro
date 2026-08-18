@@ -8,7 +8,7 @@ AutoCall Lite는 **개인 1명이 자신의 PC에서 사용하는 간단한 오�
 
 기존 AutoCall Pro 코드베이스를 삭제하거나 새 저장소를 만들지 않는다. 동작하는 기반(Next.js, NestJS, Prisma, PostgreSQL, Docker, Customer CRUD, Auth)을 재사용하고 방향을 Lite로 전환한다.
 
-이번 단계(Lite Level 3 Desktop v1)에서는 Level 2의 USB Galaxy ADB 단건 발신을 Windows EXE로 사용한다. 음성·DTMF·SMS·AI는 구현하지 않는다.
+이번 단계(Lite Level 3 Desktop v1 + v2 Companion)에서는 Level 2의 USB Galaxy ADB 단건 발신을 Windows EXE로 사용하고, Companion이 있으면 통화 상태·종료·순차 자동발신을 추가한다. 음성·DTMF·SMS API·AI는 구현하지 않는다.
 
 ## 2. 핵심 기능
 
@@ -22,7 +22,7 @@ AutoCall Lite는 **개인 1명이 자신의 PC에서 사용하는 간단한 오�
 8. 통화 결과 확인
 9. 위 기능이 안정된 뒤에만 선택적 AI 음성 대화
 
-현재 구현된 핵심은 1·2번(Customer 저장과 목록 조회)과 3번의 단건 ADB 발신이다. 연속 발신·음성·DTMF·문자(4~8번)는 이후 Level에서 구현한다.
+현재 구현된 핵심은 1·2번(Customer 저장과 목록 조회), 3번의 단건 발신(Companion 우선, ADB fallback), 순차 자동발신, 결과 배지다. 음성·DTMF·문자 API(4~8번)는 이후 Level에서 구현한다.
 
 ## 3. 제외 기능
 
@@ -48,9 +48,10 @@ apps/
   backend/
     modules/auth     단일 로컬 사용자 로그인 (기존 JWT 유지)
     modules/customers
-    modules/telephony  ADB Galaxy 단건 발신
+    modules/telephony  ADB Galaxy 단건 발신 + Companion + 소형 자동발신
     modules/settings   ADB 경로·device id, JSON export/import
     modules/messages   예정 — 아직 없음
+  android-companion/ AutoCall Companion.apk
 
 apps/backend/prisma/ SQLite + Prisma
 %APPDATA%\AutoCall Lite\  autocall.db, settings.json, logs

@@ -5,9 +5,7 @@ import { createClient as createLibsqlClient } from '@libsql/client';
 import {
   applySqliteFileMigrations,
   applySqliteMigrations,
-  loadDesktopV1Migration,
   splitSqliteMigrationStatements,
-  type SqliteMigration,
   type SqliteMigrationClient,
 } from './sqlite-migrations';
 import { toLibsqlFileUrl } from './sqlite-url';
@@ -103,11 +101,14 @@ describe('applySqliteMigrations', () => {
     );
     expect(client.executed.some((item) => item === 'COMMIT')).toBe(true);
     expect(client.versions.has('1')).toBe(true);
+    expect(client.versions.has('2')).toBe(true);
+    expect(client.executed.some((item) => item.includes('lastOutcome'))).toBe(true);
   });
 
   it('skips already applied migrations', async () => {
     const client = createMockClient();
     client.versions.add('1');
+    client.versions.add('2');
 
     await applySqliteMigrations(client);
 
@@ -145,25 +146,19 @@ describe('applySqliteMigrations', () => {
       client.executed.some((item) => item.includes('CREATE TABLE IF NOT EXISTS "customers"')),
     ).toBe(true);
     expect(client.versions.has('1')).toBe(true);
+    expect(client.versions.has('2')).toBe(true);
   });
 
   it('applies later migrations after version 1 is recorded', async () => {
     const client = createMockClient();
     client.versions.add('1');
-    const extra: SqliteMigration = {
-      version: '2',
-      name: 'add_example',
-      statements: ['CREATE TABLE IF NOT EXISTS "example" (id TEXT NOT NULL PRIMARY KEY)'],
-    };
 
-    await applySqliteMigrations(client, [loadDesktopV1Migration(), extra]);
+    await applySqliteMigrations(client);
 
     expect(
       client.executed.some((item) => item.includes('CREATE TABLE IF NOT EXISTS "users"')),
     ).toBe(false);
-    expect(
-      client.executed.some((item) => item.includes('CREATE TABLE IF NOT EXISTS "example"')),
-    ).toBe(true);
+    expect(client.executed.some((item) => item.includes('lastOutcome'))).toBe(true);
     expect(client.versions.has('2')).toBe(true);
   });
 });
@@ -190,7 +185,7 @@ describe('applySqliteFileMigrations', () => {
           expect.arrayContaining(['_schema_migrations', 'users', 'customers', 'calls']),
         );
         const versions = await libsql.execute('SELECT version, name FROM _schema_migrations');
-        expect(versions.rows.map((row) => rowText(row.version))).toEqual(['1']);
+        expect(versions.rows.map((row) => rowText(row.version))).toEqual(['1', '2']);
       } finally {
         libsql.close();
       }
@@ -199,7 +194,7 @@ describe('applySqliteFileMigrations', () => {
       const again = createLibsqlClient({ url: toLibsqlFileUrl(databaseUrl) });
       try {
         const versions = await again.execute('SELECT version FROM _schema_migrations');
-        expect(versions.rows).toHaveLength(1);
+        expect(versions.rows).toHaveLength(2);
       } finally {
         again.close();
       }
@@ -233,7 +228,7 @@ describe('applySqliteFileMigrations', () => {
         );
         expect(tables.rows).toHaveLength(0);
         const versions = await libsql.execute('SELECT version FROM _schema_migrations');
-        expect(versions.rows.map((row) => rowText(row.version))).toEqual(['1']);
+        expect(versions.rows.map((row) => rowText(row.version))).toEqual(['1', '2']);
       } finally {
         libsql.close();
       }

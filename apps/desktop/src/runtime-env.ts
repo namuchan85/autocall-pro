@@ -2,6 +2,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { app } from 'electron';
 import { discoverAdbPath } from './adb-discover';
+import { discoverCompanionApkPath } from './companion-apk-discover';
 import { readOrCreateSecrets } from './secrets-file';
 
 export interface DesktopRuntime {
@@ -38,6 +39,7 @@ export function createDesktopRuntime(): DesktopRuntime {
     PORT: '3001',
     TRUST_PROXY: 'false',
     ADB_PATH: process.env.ADB_PATH || discoveredAdb,
+    COMPANION_APK_PATH: process.env.COMPANION_APK_PATH || discoverCompanionApkPath(),
   };
   delete env.SEED_ADMIN_PASSWORD;
 

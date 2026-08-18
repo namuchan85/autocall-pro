@@ -14,6 +14,10 @@ apps/backend/src/generated/
 apps/backend/tmp/
 apps/backend/data/
 release/
+release-v2/
+apps/android-companion/.gradle/
+apps/android-companion/**/build/
+
 
 *.log
 .DS_Store

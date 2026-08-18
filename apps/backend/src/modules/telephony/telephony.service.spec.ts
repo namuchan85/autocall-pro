@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   NotFoundException,
   ServiceUnavailableException,
@@ -11,6 +12,7 @@ import type { AdbGateway } from './domain/adb.gateway';
 import type { CallRepository } from './domain/call.repository';
 import { AdbCommandFailedError, AdbExecutableMissingError } from './domain/telephony.errors';
 import type { CallRecord } from './domain/telephony.types';
+import { missingCompanionHealth, type CompanionBridge } from './companion/companion.bridge';
 import { TelephonyService } from './telephony.service';
 
 const DEVICE_ID = 'TESTDEVICE01';
@@ -27,6 +29,8 @@ function createCustomer(overrides: Partial<CustomerRecord> = {}): CustomerRecord
     memo: null,
     status: 'ACTIVE',
     doNotCall: false,
+    lastOutcome: null,
+    latestCall: null,
     deletedAt: null,
     createdAt: now,
     updatedAt: now,
@@ -44,6 +48,13 @@ function createCall(overrides: Partial<CallRecord> = {}): CallRecord {
     provider: 'ADB_GALAXY',
     deviceId: DEVICE_ID,
     errorMessage: null,
+    sessionId: null,
+    companionState: null,
+    observedActive: false,
+    startedAt: null,
+    endedAt: null,
+    durationSeconds: null,
+    attempt: 1,
     createdAt: now,
     updatedAt: now,
     ...overrides,
@@ -55,6 +66,7 @@ function createService(
     getById?: CustomersService['getById'];
     calls?: Partial<CallRepository>;
     adb?: Partial<AdbGateway>;
+    companion?: Partial<CompanionBridge>;
     deviceId?: string;
     adbPath?: string;
   } = {},
@@ -63,21 +75,31 @@ function createService(
   createCallRecord: jest.Mock;
   updateStatus: jest.Mock;
   startCall: jest.Mock;
+  companionStart: jest.Mock;
 } {
   const createCallRecord = overrides.calls?.create ?? jest.fn();
   const updateStatus = overrides.calls?.updateStatus ?? jest.fn();
   const startCall = overrides.adb?.startCall ?? jest.fn().mockResolvedValue(undefined);
   const listDevices =
     overrides.adb?.listDevices ?? jest.fn().mockResolvedValue([{ id: DEVICE_ID, state: 'device' }]);
+  const companionStart = overrides.companion?.sendCommand ?? jest.fn().mockResolvedValue(undefined);
   const calls = {
     create: createCallRecord,
     updateStatus,
+    findById: jest.fn(),
     listRecent: jest.fn(),
   } as jest.Mocked<CallRepository>;
   const adb = {
     listDevices,
     startCall,
   } as jest.Mocked<AdbGateway>;
+  const companion = {
+    getHealth:
+      overrides.companion?.getHealth ?? jest.fn().mockResolvedValue(missingCompanionHealth()),
+    readStatus: overrides.companion?.readStatus ?? jest.fn().mockResolvedValue(null),
+    sendCommand: companionStart,
+    installApk: overrides.companion?.installApk ?? jest.fn().mockResolvedValue(undefined),
+  } as jest.Mocked<CompanionBridge>;
   const customers = {
     getById: overrides.getById ?? jest.fn().mockResolvedValue(createCustomer()),
   } as Pick<CustomersService, 'getById'>;
@@ -88,10 +110,11 @@ function createService(
   };
 
   return {
-    service: new TelephonyService(settings, customers as CustomersService, calls, adb),
+    service: new TelephonyService(settings, customers as CustomersService, calls, adb, companion),
     createCallRecord,
     updateStatus,
     startCall,
+    companionStart,
   };
 }
 
@@ -267,5 +290,73 @@ describe('TelephonyService', () => {
     );
     expect(createCallRecord).not.toHaveBeenCalled();
     expect(startCall).not.toHaveBeenCalled();
+  });
+
+  it('prefers Companion when it is installed', async () => {
+    const requested = createCall({ provider: 'COMPANION', status: 'REQUESTED' });
+    const dialing = createCall({
+      provider: 'COMPANION',
+      status: 'DIALING',
+      companionState: 'DIALING',
+    });
+    const { service, startCall, companionStart } = createService({
+      calls: {
+        create: jest.fn().mockResolvedValue(requested),
+        updateStatus: jest.fn().mockResolvedValue(dialing),
+      },
+      companion: {
+        getHealth: jest.fn().mockResolvedValue({
+          ...missingCompanionHealth(),
+          installed: true,
+          companion: 'installed',
+          phoneControl: 'permission_required',
+        }),
+      },
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).resolves.toEqual(dialing);
+    expect(companionStart).toHaveBeenCalledWith(
+      DEVICE_ID,
+      'dial',
+      expect.objectContaining({ phoneNumber: '+821012345678' }),
+    );
+    expect(startCall).not.toHaveBeenCalled();
+  });
+
+  it('falls back to ADB ACTION_CALL when Companion dial fails', async () => {
+    const requested = createCall({ provider: 'COMPANION' });
+    const started = createCall({ provider: 'ADB_GALAXY', status: 'STARTED' });
+    const { service, startCall } = createService({
+      calls: {
+        create: jest.fn().mockResolvedValue(requested),
+        updateStatus: jest.fn().mockResolvedValue(started),
+      },
+      companion: {
+        getHealth: jest.fn().mockResolvedValue({
+          ...missingCompanionHealth(),
+          installed: true,
+          companion: 'installed',
+          phoneControl: 'permission_required',
+        }),
+        sendCommand: jest.fn().mockRejectedValue(new AdbCommandFailedError('companion failed')),
+      },
+    });
+
+    await expect(service.placeCall(CUSTOMER_ID)).resolves.toEqual(started);
+    expect(startCall).toHaveBeenCalledWith(DEVICE_ID, '+821012345678');
+  });
+
+  it('rejects a second in-progress call', async () => {
+    const requested = createCall();
+    const started = createCall({ status: 'STARTED' });
+    const { service } = createService({
+      calls: {
+        create: jest.fn().mockResolvedValue(requested),
+        updateStatus: jest.fn().mockResolvedValue(started),
+      },
+    });
+
+    await service.placeCall(CUSTOMER_ID);
+    await expect(service.placeCall(CUSTOMER_ID)).rejects.toBeInstanceOf(ConflictException);
   });
 });

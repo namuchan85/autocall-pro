@@ -3,15 +3,30 @@ import { Prisma } from '../../../generated/prisma/client';
 import { PrismaService } from '../../../infrastructure/database/prisma.service';
 import { CustomerCodeConflictError } from '../domain/customer.errors';
 import type { CustomerRepository } from '../domain/customer.repository';
-import type {
-  CustomerListQuery,
-  CustomerListResult,
-  CustomerPatch,
-  CustomerRecord,
-  NewCustomer,
+import {
+  CUSTOMER_OUTCOMES,
+  type CustomerListQuery,
+  type CustomerListResult,
+  type CustomerOutcome,
+  type CustomerPatch,
+  type CustomerRecord,
+  type LatestCallSummary,
+  type NewCustomer,
 } from '../domain/customer.types';
 
 const ACTIVE = { deletedAt: null } as const;
+
+const LATEST_CALL = {
+  calls: {
+    orderBy: { createdAt: 'desc' as const },
+    take: 1,
+    select: {
+      status: true,
+      provider: true,
+      observedActive: true,
+    },
+  },
+};
 
 @Injectable()
 export class PrismaCustomerRepository implements CustomerRepository {
@@ -30,6 +45,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
             status: input.status ?? 'ACTIVE',
             doNotCall: input.doNotCall ?? false,
           },
+          include: LATEST_CALL,
         }),
       );
     } catch (error) {
@@ -40,6 +56,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
   async findById(id: string): Promise<CustomerRecord | null> {
     const customer = await this.prisma.customer.findFirst({
       where: { id, ...ACTIVE },
+      include: LATEST_CALL,
     });
     return customer ? toRecord(customer) : null;
   }
@@ -67,6 +84,7 @@ export class PrismaCustomerRepository implements CustomerRepository {
         orderBy: { createdAt: 'desc' },
         skip,
         take: query.limit,
+        include: LATEST_CALL,
       }),
       this.prisma.customer.count({ where }),
     ]);
@@ -94,7 +112,9 @@ export class PrismaCustomerRepository implements CustomerRepository {
             memo: patch.memo,
             status: patch.status,
             doNotCall: patch.doNotCall,
+            lastOutcome: patch.lastOutcome,
           },
+          include: LATEST_CALL,
         }),
       );
     } catch (error) {
@@ -125,6 +145,13 @@ function uniqueConflictOr(error: unknown): Error {
   return error instanceof Error ? error : new Error('Unexpected customer persistence error');
 }
 
+function parseOutcome(value: string | null): CustomerOutcome | null {
+  if (value && CUSTOMER_OUTCOMES.includes(value as CustomerOutcome)) {
+    return value as CustomerOutcome;
+  }
+  return null;
+}
+
 function toRecord(customer: {
   id: string;
   customerCode: string;
@@ -134,9 +161,33 @@ function toRecord(customer: {
   memo: string | null;
   status: CustomerRecord['status'];
   doNotCall: boolean;
+  lastOutcome: string | null;
   deletedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  calls?: Array<{ status: string; provider: string; observedActive: boolean }>;
 }): CustomerRecord {
-  return customer;
+  const latest = customer.calls?.[0];
+  const latestCall: LatestCallSummary | null = latest
+    ? {
+        status: latest.status,
+        provider: latest.provider,
+        observedActive: latest.observedActive,
+      }
+    : null;
+  return {
+    id: customer.id,
+    customerCode: customer.customerCode,
+    name: customer.name,
+    phoneNumber: customer.phoneNumber,
+    company: customer.company,
+    memo: customer.memo,
+    status: customer.status,
+    doNotCall: customer.doNotCall,
+    lastOutcome: parseOutcome(customer.lastOutcome),
+    latestCall,
+    deletedAt: customer.deletedAt,
+    createdAt: customer.createdAt,
+    updatedAt: customer.updatedAt,
+  };
 }

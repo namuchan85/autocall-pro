@@ -57,6 +57,7 @@ model Customer {
   memo         String?
   status       CustomerStatus @default(ACTIVE)
   doNotCall    Boolean        @default(false)
+  lastOutcome  String?
   deletedAt    DateTime?
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @updatedAt
@@ -71,26 +72,40 @@ model Customer {
 enum CallStatus {
   REQUESTED
   STARTED
+  DIALING
+  RINGING
+  ACTIVE
+  DISCONNECTED
   FAILED
+  CANCELLED
 }
 
 enum CallProvider {
   ADB_GALAXY
+  COMPANION
 }
 
 model Call {
-  id           String       @id @default(uuid())
-  customerId   String
-  phoneNumber  String
-  status       CallStatus
-  provider     CallProvider @default(ADB_GALAXY)
-  deviceId     String
-  errorMessage String?
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  customer     Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  id              String       @id @default(uuid())
+  customerId      String
+  phoneNumber     String
+  status          CallStatus
+  provider        CallProvider @default(ADB_GALAXY)
+  deviceId        String
+  errorMessage    String?
+  sessionId       String?
+  companionState  String?
+  observedActive  Boolean      @default(false)
+  startedAt       DateTime?
+  endedAt         DateTime?
+  durationSeconds Int?
+  attempt         Int          @default(1)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  customer        Customer     @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   @@index([customerId])
   @@index([createdAt])
+  @@index([sessionId])
   @@map("calls")
 }

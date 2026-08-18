@@ -2,7 +2,7 @@
 
 개인 1명이 PC에서 사용하는 간단한 오토콜 프로그램입니다. 전화번호를 저장하고, 전화를 걸고, 안내 음성·DTMF·문자·결과를 다루는 것이 목표입니다. 기업용 텔레마케팅 SaaS는 만들지 않습니다.
 
-현재는 **Lite Level 3 Desktop v1**입니다. `AutoCall Lite.exe`로 고객 CRUD와 USB Galaxy ADB 단건 발신을 사용합니다. 음성·DTMF·문자는 아직 없습니다. 방향은 `docs/AUTOCALL_LITE.md`, 설치·수동 검증은 `docs/DESKTOP_V1.md`를 따릅니다.
+현재는 **Lite Level 3 Desktop v1 + v2 Galaxy Companion**입니다. `AutoCall Lite.exe`로 고객 CRUD와 USB Galaxy 발신을 사용합니다. Companion APK가 있으면 통화 상태·종료·순차 자동발신을 사용할 수 있고, 없으면 기존 ADB 단건 발신이 유지됩니다. 음성·DTMF·문자는 아직 없습니다. 방향은 `docs/AUTOCALL_LITE.md`, Companion은 `docs/AUTOCALL_V2_COMPANION.md`, 설치·수동 검증은 `docs/DESKTOP_V1.md`를 따릅니다.
 
 ## 기술 스택
 
@@ -78,10 +78,26 @@ CSV 업로드와 캠페인은 포함하지 않습니다.
 Windows PC에 USB로 연결된 Galaxy에서 고객 번호 1통을 겁니다.
 
 - `GET /telephony/device` — Connected / Unauthorized / Offline / Not Found / ADB Not Configured
+- `GET /telephony/companion` — Galaxy / Companion / Phone Control
 - `POST /telephony/call` `{ "customerId": "..." }`
-- `GET /telephony/calls` — 최근 통화 기록
+- `POST /telephony/hangup`
+- `POST /telephony/auto-call/start|pause|resume|stop`
+- `GET /telephony/calls` — 최근 통화 기록 (`provider`로 Companion / ADB fallback 구분)
 
-대시보드에서 고객을 고른 뒤 「전화 걸기」를 누르면 확인창 후 발신을 요청합니다. 성공 메시지는 `Galaxy에서 발신 요청이 시작되었습니다.`입니다. 이는 다이얼러 실행 성공이며 상대방 응답과는 다릅니다.
+대시보드에서 고객을 고른 뒤 「전화 걸기」를 누르면 확인창 후 발신을 요청합니다. Companion이 설치되어 있으면 Companion을 우선 사용하고, 실패하거나 없으면 기존 ADB `ACTION_CALL` fallback을 사용합니다.
+
+## Companion APK 설치
+
+1. Android Studio에서 `apps/android-companion`을 연다
+2. Build > Build APK(s)
+3. Galaxy USB 연결 후 아래 중 하나를 한다
+   - Dashboard 「Companion APK 설치」(확인 대화상자 있음)
+   - `adb install -r app-debug.apk`
+4. Galaxy에서 Companion을 열고 기본 전화 앱으로 설정한다
+
+자세한 내용과 수동 테스트 체크리스트는 `docs/AUTOCALL_V2_COMPANION.md`를 본다.
+
+문자 요청은 상태만 저장하며 외부 SMS API와 AI Voice는 아직 없습니다.
 
 ## 개발용 Docker fallback
 
@@ -91,7 +107,7 @@ Windows PC에 USB로 연결된 Galaxy에서 고객 번호 1통을 겁니다.
 
 변경 전 `AGENTS.md`, `DEVELOPMENT_RULES.md`, `docs/AUTOCALL_LITE.md`를 확인합니다. 커밋 전 lint-staged가 실행되며 CI는 Install, Lint, Test, Build를 검증합니다.
 
-현재 단계에서는 연속 발신, SMS, AI Voice, Campaign을 구현하지 않습니다.
+현재 단계에서는 Campaign, SMS API, AI Voice를 구현하지 않습니다.
 
 ## 프로젝트 구조
 
@@ -100,11 +116,12 @@ apps/
   desktop/        Electron Main, installer
   frontend/       Next.js (로그인, 대시보드)
   backend/        NestJS (auth, customers, telephony, settings)
+  android-companion/  AutoCall Companion.apk
 packages/
   shared/         공유 타입 예정 (비어 있음)
   ui/             공유 UI 예정 (비어 있음)
   config/         공유 설정 예정 (비어 있음)
-docs/             AUTOCALL_LITE.md, DESKTOP_V1.md
+docs/             AUTOCALL_LITE.md, DESKTOP_V1.md, AUTOCALL_V2_COMPANION.md
 docker/           개발 fallback Dockerfile
 .github/          GitHub Actions
 release/          Windows installer 산출물 (gitignore)

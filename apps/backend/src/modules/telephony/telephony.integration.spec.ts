@@ -26,8 +26,10 @@ import { ADB_RUNTIME_SETTINGS } from '../settings/domain/adb-runtime-settings';
 import { ADB_GATEWAY, type AdbGateway } from './domain/adb.gateway';
 import { CALL_REPOSITORY, type CallRepository } from './domain/call.repository';
 import type { CallRecord, CallStatusPatch, NewCall } from './domain/telephony.types';
+import { COMPANION_BRIDGE, missingCompanionHealth } from './companion/companion.bridge';
 import { TelephonyController } from './telephony.controller';
 import { TelephonyService } from './telephony.service';
+import { AutoDialerService } from './auto-call/auto-dialer.service';
 
 const ADMIN: AuthenticatedUser = {
   id: '00000000-0000-4000-8000-000000000001',
@@ -52,6 +54,8 @@ class MemoryCustomerRepository implements CustomerRepository {
       memo: input.memo ?? null,
       status: input.status ?? 'ACTIVE',
       doNotCall: input.doNotCall ?? false,
+      lastOutcome: null,
+      latestCall: null,
       deletedAt: null,
       createdAt: now,
       updatedAt: now,
@@ -97,6 +101,13 @@ class MemoryCallRepository implements CallRepository {
       provider: input.provider,
       deviceId: input.deviceId,
       errorMessage: input.errorMessage ?? null,
+      sessionId: input.sessionId ?? null,
+      companionState: input.companionState ?? null,
+      observedActive: input.observedActive ?? false,
+      startedAt: input.startedAt ?? null,
+      endedAt: input.endedAt ?? null,
+      durationSeconds: input.durationSeconds ?? null,
+      attempt: input.attempt ?? 1,
       createdAt: now,
       updatedAt: now,
     };
@@ -109,10 +120,42 @@ class MemoryCallRepository implements CallRepository {
     if (!current) {
       return Promise.resolve(null);
     }
-    current.status = patch.status;
-    current.errorMessage = patch.errorMessage ?? null;
+    if (patch.status !== undefined) {
+      current.status = patch.status;
+    }
+    if (patch.provider !== undefined) {
+      current.provider = patch.provider;
+    }
+    if (patch.errorMessage !== undefined) {
+      current.errorMessage = patch.errorMessage;
+    }
+    if (patch.sessionId !== undefined) {
+      current.sessionId = patch.sessionId;
+    }
+    if (patch.companionState !== undefined) {
+      current.companionState = patch.companionState;
+    }
+    if (patch.observedActive !== undefined) {
+      current.observedActive = patch.observedActive;
+    }
+    if (patch.startedAt !== undefined) {
+      current.startedAt = patch.startedAt;
+    }
+    if (patch.endedAt !== undefined) {
+      current.endedAt = patch.endedAt;
+    }
+    if (patch.durationSeconds !== undefined) {
+      current.durationSeconds = patch.durationSeconds;
+    }
+    if (patch.attempt !== undefined) {
+      current.attempt = patch.attempt;
+    }
     current.updatedAt = new Date();
     return Promise.resolve(current);
+  }
+
+  findById(id: string): Promise<CallRecord | null> {
+    return Promise.resolve(this.records.find((item) => item.id === id) ?? null);
   }
 
   listRecent(limit: number) {
@@ -139,6 +182,8 @@ function sampleCustomer(overrides: Partial<CustomerRecord> = {}): CustomerRecord
     memo: null,
     status: 'ACTIVE',
     doNotCall: false,
+    lastOutcome: null,
+    latestCall: null,
     deletedAt: null,
     createdAt: now,
     updatedAt: now,
@@ -183,6 +228,16 @@ describe('Telephony HTTP integration', () => {
         { provide: CUSTOMER_REPOSITORY, useValue: new MemoryCustomerRepository(customers) },
         { provide: CALL_REPOSITORY, useValue: calls },
         { provide: ADB_GATEWAY, useValue: adb },
+        {
+          provide: COMPANION_BRIDGE,
+          useValue: {
+            getHealth: jest.fn().mockResolvedValue(missingCompanionHealth()),
+            readStatus: jest.fn().mockResolvedValue(null),
+            sendCommand: jest.fn().mockResolvedValue(undefined),
+            installApk: jest.fn().mockResolvedValue(undefined),
+          },
+        },
+        AutoDialerService,
         {
           provide: ADB_RUNTIME_SETTINGS,
           useValue: {

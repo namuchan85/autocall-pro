@@ -1,9 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  CUSTOMER_OUTCOMES,
   CUSTOMER_STATUSES,
+  type CustomerOutcome,
   type CustomerRecord,
   type CustomerStatus,
 } from '../domain/customer.types';
+import { customerDisplayBadge } from '../validation/customer-display';
 
 export class CustomerResponseDto {
   @ApiProperty({ format: 'uuid' })
@@ -30,6 +33,27 @@ export class CustomerResponseDto {
   @ApiProperty()
   doNotCall!: boolean;
 
+  @ApiPropertyOptional({ enum: CUSTOMER_OUTCOMES, nullable: true, type: String })
+  lastOutcome!: CustomerOutcome | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  latestCallStatus!: string | null;
+
+  @ApiPropertyOptional({ nullable: true, type: String })
+  latestCallProvider!: string | null;
+
+  @ApiProperty()
+  latestObservedActive!: boolean;
+
+  @ApiProperty({ enum: ['gray', 'yellow', 'blue', 'red', 'green', 'orange'] })
+  displayColor!: string;
+
+  @ApiProperty()
+  displayBadge!: string;
+
+  @ApiProperty()
+  displayLabel!: string;
+
   @ApiPropertyOptional({ nullable: true, type: String, format: 'date-time' })
   deletedAt!: string | null;
 
@@ -40,6 +64,12 @@ export class CustomerResponseDto {
   updatedAt!: string;
 
   static fromRecord(record: CustomerRecord): CustomerResponseDto {
+    const display = customerDisplayBadge({
+      doNotCall: record.doNotCall,
+      lastOutcome: record.lastOutcome,
+      latestCallStatus: record.latestCall?.status ?? null,
+      latestObservedActive: record.latestCall?.observedActive ?? false,
+    });
     return {
       id: record.id,
       customerCode: record.customerCode,
@@ -49,6 +79,13 @@ export class CustomerResponseDto {
       memo: record.memo,
       status: record.status,
       doNotCall: record.doNotCall,
+      lastOutcome: record.lastOutcome,
+      latestCallStatus: record.latestCall?.status ?? null,
+      latestCallProvider: record.latestCall?.provider ?? null,
+      latestObservedActive: record.latestCall?.observedActive ?? false,
+      displayColor: display.color,
+      displayBadge: display.badge,
+      displayLabel: display.label,
       deletedAt: record.deletedAt?.toISOString() ?? null,
       createdAt: record.createdAt.toISOString(),
       updatedAt: record.updatedAt.toISOString(),
